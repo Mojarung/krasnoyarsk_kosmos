@@ -15,7 +15,7 @@ x-backend: &backend
     DATA_DIR: /data
     SEED_LIMIT_AF: ${SEED_LIMIT_AF:-0}
     SEED_LIMIT_BS: ${SEED_LIMIT_BS:-0}
-    FIRE_ML_AF: ${FIRE_ML_AF:-fire_ml.baseline:BaselineActiveFire}
+    FIRE_ML_AF: ${FIRE_ML_AF:-fire_ml.af_gbm:GbmActiveFire}
     FIRE_ML_BS: ${FIRE_ML_BS:-fire_ml.baseline:BaselineBurnSeverity}
     LLM_BASE_URL: ${LLM_BASE_URL:-}
     LLM_API_KEY: ${LLM_API_KEY:-}
