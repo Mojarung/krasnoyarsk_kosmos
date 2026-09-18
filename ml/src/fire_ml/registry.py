@@ -5,7 +5,7 @@ from importlib import import_module
 
 from fire_ml.contract import ActiveFireModel, BurnSeverityModel
 
-DEFAULT_AF = "fire_ml.baseline:BaselineActiveFire"
+DEFAULT_AF = "fire_ml.af_gbm:GbmActiveFire"
 DEFAULT_BS = "fire_ml.baseline:BaselineBurnSeverity"
 
 
