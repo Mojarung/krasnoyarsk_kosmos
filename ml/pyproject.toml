@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Контракт ML-модулей (активное горение, гари) и индексный baseline"
 requires-python = ">=3.13"
 dependencies = [
+    "lightgbm>=4.7.0",
     "numpy>=2.5.3",
     "rasterio>=1.5.1",
     "scipy>=1.18.1",
