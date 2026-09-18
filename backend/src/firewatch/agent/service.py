@@ -86,34 +86,29 @@ def _digest(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _ha(value: float) -> str:
+    return f"{value:,.0f}".replace(",", " ")
+
+
 def summarize(region: Region, date_from: date, date_to: date, report: dict[str, Any]) -> str:
     burn, hot, plan = report["burn"], report["hotspots"], report["restoration"]
     period = f"{date_from:%d.%m.%Y} - {date_to:%d.%m.%Y}"
     if not burn["total_ha"] and not hot["raw_total"]:
         return f"{region.name}, {period}: в загруженных сценах нет ни гарей, ни термоточек. Попробуйте расширить период."
     severity = ", ".join(
-        f"{s['label']} {s['area_ha']:,.0f} га ({s['share']:.0%})".replace(",", " ")
-        for s in burn["by_severity"]
+        f"{s['label']} {_ha(s['area_ha'])} га ({s['share']:.0%})" for s in burn["by_severity"]
     )
     lines = [
         f"{region.name}, {period}.",
-        f"Гари: {burn['total_ha']:,.0f} га в {burn['contours']} контурах. По степеням: {severity}.".replace(
-            ",", " ", 1
-        ),
+        f"Гари: {_ha(burn['total_ha'])} га в {burn['contours']} контурах. По степеням: {severity}.",
         f"Термоточки: {hot['fire']} природных в {hot['fire_clusters']} очагах. Отфильтровано {hot['technogenic']} техногенных "
-        f"и {hot['glint']} бликов, это {hot['false_dispatches_prevented']} ложных выездов.",
+        f"и {hot['glint']} бликов, ложных выездов предотвращено: {hot['false_dispatches_prevented']}.",
     ]
     if burn["largest"]:
         top = burn["largest"][0]
-        lines.append(
-            f"Крупнейшая гарь: {top['area_ha']:,.0f} га, снимок от {top['date_post']}.".replace(",", " ")
-        )
+        lines.append(f"Крупнейшая гарь: {_ha(top['area_ha'])} га, снимок от {top['date_post']}.")
     if plan["damage_area_ha"]:
-        lines.append(
-            f"Под искусственное лесовосстановление попадает {plan['damage_area_ha']:,.0f} га.".replace(
-                ",", " "
-            )
-        )
+        lines.append(f"Под искусственное лесовосстановление попадает {_ha(plan['damage_area_ha'])} га.")
     return " ".join(lines)
 
 

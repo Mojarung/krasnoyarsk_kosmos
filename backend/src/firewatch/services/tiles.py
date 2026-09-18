@@ -32,14 +32,14 @@ _SEVERITY = text(
     f"""
     WITH bounds AS (
         SELECT ST_TileEnvelope(:z, :x, :y) AS merc, ST_Transform(ST_TileEnvelope(:z, :x, :y), 4326) AS wgs
-    ), severity AS (
+    ), tile_rows AS (
         SELECT s.id, s.severity, s.scene_id, s.burn_area_id AS contour_id, s.area_ha,
                {_EPOCH_DAYS.format(col="sc.date_pre")} AS t0, {_EPOCH_DAYS.format(col="s.date_post")} AS t1,
                ST_AsMVTGeom(ST_Transform(s.geom, 3857), bounds.merc, 4096, 64, true) AS geom
         FROM severity_polygons s JOIN scenes sc ON sc.id = s.scene_id, bounds
         WHERE s.geom && bounds.wgs
     )
-    SELECT coalesce((SELECT ST_AsMVT(severity, 'severity', 4096, 'geom', 'id') FROM severity WHERE geom IS NOT NULL), '')
+    SELECT coalesce((SELECT ST_AsMVT(tile_rows, 'severity', 4096, 'geom', 'id') FROM tile_rows WHERE geom IS NOT NULL), '')
     """
 )
 
