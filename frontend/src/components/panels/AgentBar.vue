@@ -23,9 +23,10 @@ const busy = ref(false)
 const open = ref(false)
 const mode = ref<string | null>(null)
 const card = ref<AgentCardData | null>(null)
+const refusalExamples = ref<string[]>([])
 let controller: AbortController | null = null
 
-const modeLabel = computed(() => (mode.value === 'llm' ? query.meta?.agent.model ?? 'LLM' : mode.value === 'rules' ? 'разбор по правилам' : null))
+const modeLabel = computed(() => (mode.value === 'llm' ? `${query.meta?.agent.model ?? 'LLM'} · карта и справка уже обновлены` : mode.value === 'rules' ? 'разбор по правилам · карта и справка уже обновлены' : mode.value === 'guard' ? 'вопрос вне темы, карта не менялась' : null))
 
 onClickOutside(root, () => !busy.value && (open.value = false))
 
@@ -44,6 +45,7 @@ async function ask(text = input.value) {
   answer.value = ''
   mode.value = null
   card.value = null
+  refusalExamples.value = []
   busy.value = true
   open.value = true
   try {
@@ -51,6 +53,7 @@ async function ask(text = input.value) {
       if (item.event === 'token') answer.value += item.data.text
       else if (item.event === 'done') mode.value = item.data.mode
       else if (item.event === 'card') card.value = item.data
+      else if (item.event === 'refusal') refusalExamples.value = item.data.examples
       else if (item.event === 'action') applyAction(item.data)
     }
   } catch (e) {
@@ -112,7 +115,11 @@ function close() {
           <button type="button" class="self-start text-muted-foreground hover:text-foreground" aria-label="Закрыть ответ" @click="close"><X class="size-4" /></button>
         </div>
         <AgentCard v-if="card" :card="card" />
-        <div v-if="modeLabel" class="mt-2.5 text-[11px] text-muted-foreground">Ответ: {{ modeLabel }} · карта и справка уже обновлены</div>
+        <div v-if="refusalExamples.length" class="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+          <div class="label-caps mb-1">Попробуйте так</div>
+          <button v-for="item in refusalExamples" :key="item" type="button" class="block w-full rounded-full bg-surface-2 px-4 py-2 text-left text-[13px] transition-colors duration-200 hover:bg-surface-3 active:scale-[0.99]" @click="ask(item)">{{ item }}</button>
+        </div>
+        <div v-if="modeLabel" class="mt-2.5 text-[11px] text-muted-foreground">Ответ: {{ modeLabel }}</div>
       </div>
     </div>
   </div>

@@ -112,6 +112,7 @@ export type AgentEvent =
   | { event: 'token'; data: { text: string } }
   | { event: 'done'; data: { mode: string; model?: string } }
   | { event: 'card'; data: AgentCardData }
+  | { event: 'refusal'; data: { examples: string[] } }
   | { event: 'action'; data: AgentAction }
 
 export async function* streamSse(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<AgentEvent> {

@@ -8,6 +8,8 @@ const texts = new WeakMap<HTMLElement, string>()
 let bubble: HTMLElement | null = null
 let timer: number | undefined
 let owner: HTMLElement | null = null
+let pending: HTMLElement | null = null
+let guarded = false
 
 function ensureBubble(): HTMLElement {
   if (!bubble) {
@@ -31,8 +33,9 @@ function place(target: HTMLElement) {
 }
 
 function show(target: HTMLElement) {
+  pending = null
   const text = texts.get(target)
-  if (!text) return
+  if (!text || !target.isConnected) return
   const tip = ensureBubble()
   owner = target
   tip.textContent = text
@@ -43,13 +46,22 @@ function show(target: HTMLElement) {
 function hide() {
   window.clearTimeout(timer)
   owner = null
+  pending = null
   if (bubble) bubble.dataset.open = 'false'
 }
 
 function onEnter(event: Event) {
   const target = event.currentTarget as HTMLElement
   window.clearTimeout(timer)
+  pending = target
   timer = window.setTimeout(() => show(target), SHOW_DELAY_MS)
+}
+
+/** Страховка: подсказка не должна пережить клик, прокрутку, Escape или уход со вкладки. */
+function installGuards() {
+  if (guarded) return
+  guarded = true
+  for (const name of ['pointerdown', 'wheel', 'keydown', 'blur'] as const) window.addEventListener(name, hide, { capture: true, passive: true })
 }
 
 const EVENTS: [string, (event: Event) => void][] = [
@@ -62,6 +74,7 @@ const EVENTS: [string, (event: Event) => void][] = [
 
 export const vTip: Directive<HTMLElement, string | null | undefined> = {
   mounted(el, binding) {
+    installGuards()
     if (binding.value) texts.set(el, binding.value)
     for (const [name, handler] of EVENTS) el.addEventListener(name, handler)
   },
@@ -72,7 +85,7 @@ export const vTip: Directive<HTMLElement, string | null | undefined> = {
   },
   unmounted(el) {
     for (const [name, handler] of EVENTS) el.removeEventListener(name, handler)
-    if (owner === el) hide()
+    if (owner === el || pending === el) hide()
   },
 }
 
