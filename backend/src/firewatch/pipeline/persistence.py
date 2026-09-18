@@ -11,8 +11,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.config import get_settings
+from firewatch.infra.cache import redis
 
 _LOCK_ID = 74001
+DIRTY_KEY = "fw:persistence_dirty"
 
 _REFRESH_SOURCES = text(
     """
@@ -66,9 +68,20 @@ _FLAG_HOTSPOTS = text(
 )
 
 
-async def refresh_persistent_sources(session: AsyncSession) -> None:
+async def mark_dirty() -> None:
+    await redis.set(DIRTY_KEY, "1")
+
+
+async def refresh_persistent_sources(session: AsyncSession) -> bool:
+    """Пересчитывает источники, если после последнего пересчёта появились новые детекции.
+
+    Воркеры выстраиваются на advisory lock. Тот, кто получил его первым, забирает флаг и считает,
+    остальные видят, что флага уже нет, и выходят: их данные закоммичены до чужого пересчёта.
+    """
     s = get_settings()
     await session.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": _LOCK_ID})
+    if await redis.getdel(DIRTY_KEY) is None:
+        return False
     await session.execute(text("DELETE FROM persistent_sources"))
     await session.execute(
         _REFRESH_SOURCES,
@@ -80,3 +93,4 @@ async def refresh_persistent_sources(session: AsyncSession) -> None:
         },
     )
     await session.execute(_FLAG_HOTSPOTS, {"radius": s.persistent_radius_m})
+    return True

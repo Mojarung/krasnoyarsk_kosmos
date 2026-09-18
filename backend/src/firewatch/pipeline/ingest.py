@@ -22,7 +22,7 @@ from firewatch.infra.cache import bump_data_version, publish_event
 from firewatch.pipeline.alerts import deliver_alerts, raise_zone_alerts
 from firewatch.pipeline.compute import AfResult, BsResult, compute_af, compute_bs
 from firewatch.pipeline.georef import WGS84, GeoRef
-from firewatch.pipeline.persistence import refresh_persistent_sources
+from firewatch.pipeline.persistence import mark_dirty, refresh_persistent_sources
 
 log = logging.getLogger(__name__)
 
@@ -219,12 +219,15 @@ async def _process(job_id: uuid.UUID, scene_id: str) -> None:
             await _publish_af(session, scene, result)
         else:
             await _publish_bs(session, scene, result)
-        await session.flush()
-        alerts = []
-        if isinstance(result, AfResult):
+        await session.commit()
+
+    alerts = []
+    if isinstance(result, AfResult):
+        await mark_dirty()
+        async with SessionFactory() as session:
             await refresh_persistent_sources(session)
             alerts = await raise_zone_alerts(session, scene_id)
-        await session.commit()
+            await session.commit()
 
     await bump_data_version()
     await deliver_alerts(alerts)
