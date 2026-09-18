@@ -97,23 +97,23 @@ export async function loadBaseStyle(theme: MapTheme, background: string): Promis
 
 export const OVERLAY_SOURCES = new Set<string>(Object.values(SRC).filter((id) => id !== SRC.basemapSat))
 
-const severityColor: ExpressionSpecification = ['match', ['get', 'severity'], 1, '#ffd166', 2, '#f77f00', 3, '#d00000', '#f77f00']
+const severityColor: ExpressionSpecification = ['match', ['get', 'severity'], 1, '#f2cf72', 2, '#ee8a35', 3, '#d2382f', '#ee8a35']
 
 export function overlayLayers(): AddLayerObject[] {
   return [
     { id: 'focus-mask', type: 'fill', source: SRC.focus, paint: { 'fill-color': '#0a0807', 'fill-opacity': 0.58, 'fill-opacity-transition': { duration: 600 } } },
-    { id: 'regions-line', type: 'line', source: SRC.regions, paint: { 'line-color': '#f0dfd6', 'line-opacity': 0.16, 'line-width': 1 } },
-    { id: 'aoi-line', type: 'line', source: SRC.aoi, paint: { 'line-color': '#ffb693', 'line-opacity': 0.5, 'line-width': 1.4, 'line-dasharray': [3, 2] } },
-    { id: 'focus-glow', type: 'fill', source: SRC.query, paint: { 'fill-color': '#ffb693', 'fill-opacity': 0.05 } },
-    { id: 'focus-halo', type: 'line', source: SRC.query, paint: { 'line-color': '#ffb693', 'line-width': 14, 'line-blur': 12, 'line-opacity': 0.35 } },
-    { id: 'focus-line', type: 'line', source: SRC.query, paint: { 'line-color': '#ffb693', 'line-width': 2, 'line-opacity': 0.9 } },
+    { id: 'regions-line', type: 'line', source: SRC.regions, paint: { 'line-color': '#ebe3dd', 'line-opacity': 0.16, 'line-width': 1 } },
+    { id: 'aoi-line', type: 'line', source: SRC.aoi, paint: { 'line-color': '#e3b9a4', 'line-opacity': 0.5, 'line-width': 1.4, 'line-dasharray': [3, 2] } },
+    { id: 'focus-glow', type: 'fill', source: SRC.query, paint: { 'fill-color': '#e3b9a4', 'fill-opacity': 0.05 } },
+    { id: 'focus-halo', type: 'line', source: SRC.query, paint: { 'line-color': '#e3b9a4', 'line-width': 12, 'line-blur': 12, 'line-opacity': 0.2 } },
+    { id: 'focus-line', type: 'line', source: SRC.query, paint: { 'line-color': '#e3b9a4', 'line-width': 2, 'line-opacity': 0.9 } },
     {
       id: LAYER.burnFill,
       type: 'fill',
       source: SRC.burns,
       'source-layer': 'contours',
       paint: {
-        'fill-color': '#f77f00',
+        'fill-color': '#ee8a35',
         'fill-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.75, SEVERITY_ZOOM, 0.55, SEVERITY_ZOOM + 0.6, 0],
       },
     },
@@ -136,7 +136,7 @@ export function overlayLayers(): AddLayerObject[] {
       'source-layer': 'contours',
       minzoom: 7,
       paint: {
-        'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#ffdbca'],
+        'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#f5e0d5'],
         'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.2, 0.8],
         'line-opacity': 0.85,
       },
@@ -149,9 +149,9 @@ export function overlayLayers(): AddLayerObject[] {
       maxzoom: 8.5,
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['sqrt', ['get', 'area_ha']], 0, 2.5, 30, 6, 120, 16],
-        'circle-color': '#f77f00',
+        'circle-color': '#ee8a35',
         'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.5, 8.5, 0],
-        'circle-stroke-color': '#ffdbca',
+        'circle-stroke-color': '#f5e0d5',
         'circle-stroke-width': 1,
         'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.8, 8.5, 0],
       },
@@ -176,7 +176,7 @@ export function overlayLayers(): AddLayerObject[] {
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 1.6, 9, 4, 13, 8],
         'circle-color': 'rgba(0,0,0,0)',
-        'circle-stroke-color': ['match', ['get', 'kind'], 'glint', '#7dd3fc', '#8fa3b8'],
+        'circle-stroke-color': ['match', ['get', 'kind'], 'glint', '#8ecdf0', '#8fa3b8'],
         'circle-stroke-width': 1.3,
         'circle-stroke-opacity': 0.9,
       },
@@ -188,7 +188,7 @@ export function overlayLayers(): AddLayerObject[] {
       filter: ['==', ['get', 'kind'], 'fire'],
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 9, 12, 13, 26],
-        'circle-color': '#ff6b35',
+        'circle-color': '#f7774a',
         'circle-blur': 1,
         'circle-opacity': 0.42,
       },
@@ -198,7 +198,7 @@ export function overlayLayers(): AddLayerObject[] {
       type: 'circle',
       source: SRC.hotspots,
       filter: ['==', ['get', 'id'], -1],
-      paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#ffd166', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 },
+      paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#f2cf72', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 },
     },
     {
       id: LAYER.fireCore,
@@ -207,11 +207,11 @@ export function overlayLayers(): AddLayerObject[] {
       filter: ['==', ['get', 'kind'], 'fire'],
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 1.4, 9, 3, 13, 6.5],
-        'circle-color': ['interpolate', ['linear'], ['get', 'bt_i4'], 320, '#ff6b35', 345, '#ffb703', 367, '#fff3b0'],
+        'circle-color': ['interpolate', ['linear'], ['get', 'bt_i4'], 320, '#f7774a', 345, '#ffb703', 367, '#fff3b0'],
         'circle-stroke-color': '#2b0d00',
         'circle-stroke-width': 0.6,
       },
     },
-    { id: 'zones-line', type: 'line', source: SRC.zones, paint: { 'line-color': '#c9ca94', 'line-width': 1.6, 'line-dasharray': [2, 1.5] } },
+    { id: 'zones-line', type: 'line', source: SRC.zones, paint: { 'line-color': '#c1c39c', 'line-width': 1.6, 'line-dasharray': [2, 1.5] } },
   ]
 }

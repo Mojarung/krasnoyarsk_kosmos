@@ -4,9 +4,9 @@ import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter'
 import type { AreaGeometry } from '@/lib/types'
 
 const STYLE = {
-  fillColor: '#ffb693' as const,
+  fillColor: '#e3b9a4' as const,
   fillOpacity: 0.18,
-  outlineColor: '#ffb693' as const,
+  outlineColor: '#e3b9a4' as const,
   outlineWidth: 2,
 }
 
@@ -14,7 +14,7 @@ export function beginDraw(map: MapLibre, mode: 'polygon' | 'rectangle', onFinish
   const draw = new TerraDraw({
     adapter: new TerraDrawMapLibreGLAdapter({ map }),
     modes: [
-      new TerraDrawPolygonMode({ styles: { ...STYLE, closingPointColor: '#ffdbca', closingPointWidth: 6 } }),
+      new TerraDrawPolygonMode({ styles: { ...STYLE, closingPointColor: '#f5e0d5', closingPointWidth: 6 } }),
       new TerraDrawRectangleMode({ styles: STYLE }),
     ],
   })
