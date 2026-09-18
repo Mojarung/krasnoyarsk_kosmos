@@ -92,13 +92,21 @@ async def _report(session: AsyncSession, query: q.SpatioTemporalQuery, fmt: str)
 
 
 @router.post("/query", summary="Всё по запросу одним вызовом: термоточки, контуры гарей, справка")
-async def run_query(body: QueryBody, session: Session) -> dict[str, Any]:
+async def run_query(
+    body: QueryBody,
+    session: Session,
+    contours: bool = Query(
+        True, description="Вернуть контуры гарей. Карта интерфейса берёт их из векторных тайлов"
+    ),
+) -> dict[str, Any]:
     query = body.to_query()
-    return {
+    result = {
         "hotspots": await _hotspots(session, query, None, "geojson"),
-        "burn_areas": await _burns(session, query, "contours", "geojson"),
         "report": await _report(session, query, "json"),
     }
+    if contours:
+        result["burn_areas"] = await _burns(session, query, "contours", "geojson")
+    return result
 
 
 @router.get("/hotspots", summary="Термоточки по bbox и периоду")

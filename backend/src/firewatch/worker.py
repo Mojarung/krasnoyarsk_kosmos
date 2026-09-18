@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 
@@ -29,3 +30,7 @@ async def prepare_storage() -> None:
 @broker.subscriber(INGEST_QUEUE, channel=Channel(prefetch_count=get_settings().worker_prefetch))
 async def ingest(message: IngestMessage) -> None:
     await process_scene(message.job_id, message.scene_id)
+
+
+if __name__ == "__main__":
+    asyncio.run(app.run())
