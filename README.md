@@ -116,6 +116,8 @@ PYTHONPATH=research/af uv run python research/af/train.py
 
 TODO (ML, гари): обученная модель, команда обучения, порядок получения весов.
 
+Как подключить свою модель под контракт, чтобы её подхватили `inference.py` и сервис: [ml/README.md](ml/README.md).
+
 ### Инференс
 
 ```bash
