@@ -98,9 +98,32 @@ FIRE_ML_AF=my_package.models:MyActiveFire
 FIRE_ML_BS=my_package.models:MyBurnSeverity
 ```
 
-По умолчанию работает индексный baseline без обучения (`ml/src/fire_ml/baseline.py`): контекстный порог по I4 и I4-I5 для горения, dNBR с порогами по типу покрова для гарей. На всём train он даёт F1_af 0,83, IoU_burn 0,42, mIoU_sev 0,26, Score 0,52. `AfPrediction.codes` необязателен: если модель отдаёт коды отсеянных термоаномалий, сервис покажет их на карте с причиной.
+### Активное горение
 
-TODO (ML): `inference.py --data-dir ... --output submission.csv`, команда обучения, порядок получения весов, фиксация seed.
+Предфильтр кандидатов плюс LightGBM по 47 контекстным признакам (`ml/src/fire_ml/af_gbm.py`, веса 1,4 МБ лежат в репозитории, скачивать ничего не нужно). На территориальной кросс-валидации F1 0,960 против 0,836 у индексного baseline, на отложенных 2023-2024 годах 0,950, 57 мс на чип на CPU. Ход исследования, абляция, тупиковые ветки и разбор ошибок: [research/af/REPORT.md](research/af/REPORT.md).
+
+```bash
+uv sync --group research
+uv run python research/af/build_dataset.py
+PYTHONPATH=research/af uv run python research/af/train.py
+```
+
+Обучение детерминировано: сид 17, `deterministic=True`. `AfPrediction.codes` несёт коды отсеянных термоаномалий, сервис показывает их на карте с причиной.
+
+### Гари и степень поражения
+
+Пока работает индексный baseline `ml/src/fire_ml/baseline.py`: dNBR с порогами по типу покрова, на train IoU_burn 0,44, mIoU_sev 0,28.
+
+TODO (ML, гари): обученная модель, команда обучения, порядок получения весов.
+
+### Инференс
+
+```bash
+uv sync
+uv run python inference.py --data-dir DATA/test --output submission.csv
+```
+
+`--data-dir` указывает на каталог с `sample_submission.csv`, `af/` и `bs/`. Чипы обрабатываются параллельно (до 8 процессов, `--workers`), сбой чтения одного чипа пишется в лог и даёт пустую маску, скрипт не падает. Формат RLE закреплён тестами `ml/tests/test_rle.py`.
 
 ## Структура входных данных
 
@@ -115,7 +138,9 @@ DATA/fire-train-renamed/train/
 ## Структура репозитория
 
 ```
-ml/                 контракт моделей, чтение чипов, baseline
+ml/                 контракт моделей, признаки и модель активного горения, baseline гарей, RLE
+research/af/        исследование по активному горению: датасет, эксперименты, графики, отчёт
+inference.py        сборка submission.csv
 backend/            FastAPI, конвейер, сервисы запросов и выгрузок, миграции, тесты
   src/firewatch/
     pipeline/       приём сцены: инференс, векторизация, превью, постоянные источники, алерты
