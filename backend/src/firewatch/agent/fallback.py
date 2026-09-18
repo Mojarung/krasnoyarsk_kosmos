@@ -16,6 +16,11 @@ MONTH_STEMS = {
 SEASONS = {"весн": (3, 5), "лет(?:о|ом|а|н)": (6, 8), "осен": (9, 11), "сезон": (4, 10)}
 YEAR_PATTERN = re.compile(r"\b(20[12]\d)\b")
 FIRE_SEASON = (4, 10)
+INTENT_PATTERNS = {
+    "largest": re.compile(r"крупнейш|наибольш|максимальн|сам\w+\s+(?:крупн|больш|массив|сильн|мощн|обширн)"),
+    "technogenic": re.compile(r"техноген|факел|ложн|отфильтр|отсея|промышл|блик"),
+    "restoration": re.compile(r"восстан|лесовосст|посадк|ущерб|затрат"),
+}
 
 
 @dataclass(frozen=True)
@@ -25,6 +30,7 @@ class ParsedRequest:
     date_to: date
     region_recognized: bool
     period_recognized: bool
+    intent: str = "overview"
 
 
 def _months(text: str) -> tuple[int, int] | None:
@@ -60,4 +66,5 @@ def parse_request(message: str, data_range: tuple[date, date]) -> ParsedRequest:
         date_to=date_to,
         region_recognized=region is not None,
         period_recognized=bool(years or months),
+        intent=next((name for name, pattern in INTENT_PATTERNS.items() if pattern.search(text)), "overview"),
     )

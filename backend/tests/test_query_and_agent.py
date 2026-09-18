@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from firewatch.agent.fallback import parse_request
+from firewatch.agent.service import plural
 from firewatch.services.query import InvalidQueryError, SpatioTemporalQuery
 from firewatch.services.restoration import build_plan
 
@@ -88,3 +89,25 @@ def test_restoration_plan_routes_severe_forest_to_planting() -> None:
     assert plan["damage_area_ha"] == 10.0
     assert plan["natural_area_ha"] == 40.0
     assert plan["total_cost"] == sum(item["cost"] for item in plan["items"])
+
+
+@pytest.mark.parametrize(
+    ("message", "intent"),
+    [
+        ("Ростовская область самый массивный пожар за все время", "largest"),
+        ("покажи крупнейшую гарь в Калмыкии", "largest"),
+        ("сколько ложных срабатываний отсеяно в 2021", "technogenic"),
+        ("что нужно восстанавливать после 2020 года", "restoration"),
+        ("гари в Калмыкии за июль 2023", "overview"),
+    ],
+)
+def test_agent_detects_intent(message: str, intent: str) -> None:
+    assert parse_request(message, DATA_RANGE).intent == intent
+
+
+@pytest.mark.parametrize(
+    ("n", "expected"),
+    [(1, "1 очаг"), (3, "3 очага"), (5, "5 очагов"), (11, "11 очагов"), (21, "21 очаг"), (112, "112 очагов")],
+)
+def test_plural_follows_russian_rules(n: int, expected: str) -> None:
+    assert plural(n, ("очаг", "очага", "очагов")) == expected

@@ -15,6 +15,7 @@ from firewatch.agent.fallback import parse_request
 from firewatch.agent.regions import Region, all_regions, find_region
 from firewatch.config import get_settings
 from firewatch.db.session import SessionFactory
+from firewatch.infra.cache import cached
 from firewatch.services.query import SpatioTemporalQuery
 from firewatch.services.report import build_report
 
@@ -50,7 +51,7 @@ async def _report(region: Region, date_from: date, date_to: date) -> dict[str, A
         geometry=region.geometry, bbox=None, date_from=date_from, date_to=date_to
     )
     async with SessionFactory() as session:
-        return await build_report(session, query)
+        return await cached("report", query.cache_key, lambda: build_report(session, query))
 
 
 def _action(region: Region, date_from: date, date_to: date) -> Event:
@@ -90,42 +91,139 @@ def _ha(value: float) -> str:
     return f"{value:,.0f}".replace(",", " ")
 
 
-def summarize(region: Region, date_from: date, date_to: date, report: dict[str, Any]) -> str:
-    burn, hot, plan = report["burn"], report["hotspots"], report["restoration"]
-    period = f"{date_from:%d.%m.%Y} - {date_to:%d.%m.%Y}"
-    if not burn["total_ha"] and not hot["raw_total"]:
-        return f"{region.name}, {period}: в загруженных сценах нет ни гарей, ни термоточек. Попробуйте расширить период."
-    severity = ", ".join(
-        f"{s['label']} {_ha(s['area_ha'])} га ({s['share']:.0%})" for s in burn["by_severity"]
+def plural(n: int, forms: tuple[str, str, str]) -> str:
+    """forms: для 1, для 2-4, для 5+. Например («гарь», «гари», «гарей»)."""
+    n = abs(int(n))
+    if n % 10 == 1 and n % 100 != 11:
+        return f"{n} {forms[0]}"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return f"{n} {forms[1]}"
+    return f"{n} {forms[2]}"
+
+
+HOTSPOTS = ("термоточка", "термоточки", "термоточек")
+CONTOURS = ("контур", "контура", "контуров")
+DISPATCHES = ("ложный выезд", "ложных выезда", "ложных выездов")
+CLUSTERS = ("очаг пожара", "очага пожара", "очагов пожаров")
+GLINTS = ("блик", "блика", "бликов")
+TECHNOGENIC = ("техногенный источник", "техногенных источника", "техногенных источников")
+
+
+def _money(value: float, currency: str) -> str:
+    return (
+        f"{value / 1e6:,.1f} млн {currency}".replace(",", " ") if value >= 1e6 else f"{_ha(value)} {currency}"
     )
-    lines = [
-        f"{region.name}, {period}.",
-        f"Гари: {_ha(burn['total_ha'])} га в {burn['contours']} контурах. По степеням: {severity}.",
-        f"Термоточки: {hot['fire']} природных в {hot['fire_clusters']} очагах. Отфильтровано {hot['technogenic']} техногенных "
-        f"и {hot['glint']} бликов, ложных выездов предотвращено: {hot['false_dispatches_prevented']}.",
-    ]
-    if burn["largest"]:
+
+
+def build_card(
+    region: Region, date_from: date, date_to: date, report: dict[str, Any], notes: list[str]
+) -> Event:
+    """Структурированный ответ: интерфейс рисует его карточкой, а не читает абзац текста."""
+    burn, hot, plan = report["burn"], report["hotspots"], report["restoration"]
+    top = burn["largest"][0] if burn["largest"] else None
+    return {
+        "event": "card",
+        "data": {
+            "title": region.name,
+            "date_from": date_from.isoformat(),
+            "date_to": date_to.isoformat(),
+            "notes": notes,
+            "empty": not burn["total_ha"] and not hot["raw_total"],
+            "kpis": [
+                {
+                    "label": "Пройдено огнём",
+                    "value": burn["total_ha"],
+                    "unit": "га",
+                    "sub": f"{burn['contours']} контуров",
+                },
+                {
+                    "label": "Очагов пожаров",
+                    "value": hot["fire_clusters"],
+                    "unit": "",
+                    "sub": f"{hot['fire']} термоточек",
+                },
+                {
+                    "label": "Отсеяно срабатываний",
+                    "value": hot["technogenic"] + hot["glint"],
+                    "unit": "",
+                    "sub": plural(hot["false_dispatches_prevented"], DISPATCHES),
+                },
+                {
+                    "label": "Под посадки",
+                    "value": plan["damage_area_ha"],
+                    "unit": "га",
+                    "sub": _money(plan["total_cost"], plan["currency"]),
+                },
+            ],
+            "severity": burn["by_severity"],
+            "largest": top,
+        },
+    }
+
+
+def lead_sentence(intent: str, region: Region, report: dict[str, Any]) -> str:
+    burn, hot, plan = report["burn"], report["hotspots"], report["restoration"]
+    if not burn["total_ha"] and not hot["raw_total"]:
+        return f"{region.name}: в загруженных сценах за этот период нет ни гарей, ни термоточек. Попробуйте расширить период."
+    if intent == "largest" and burn["largest"]:
         top = burn["largest"][0]
-        lines.append(f"Крупнейшая гарь: {_ha(top['area_ha'])} га, снимок от {top['date_post']}.")
-    if plan["damage_area_ha"]:
-        lines.append(f"Под искусственное лесовосстановление попадает {_ha(plan['damage_area_ha'])} га.")
-    return " ".join(lines)
+        return (
+            f"Крупнейшая гарь: {_ha(top['area_ha'])} га, снимок от {date.fromisoformat(top['date_post']):%d.%m.%Y}. "
+            "Карта наведена на неё, клик по контуру откроет сравнение до и после."
+        )
+    if intent == "technogenic":
+        return (
+            f"Из {hot['raw_total']} термоаномалий отсеяно {hot['technogenic'] + hot['glint']}: "
+            f"{plural(hot['technogenic'], TECHNOGENIC)} и {plural(hot['glint'], GLINTS)}. "
+            f"Предотвращено: {plural(hot['false_dispatches_prevented'], DISPATCHES)}. "
+            "Подробности на вкладке «Фильтр»."
+        )
+    if intent == "restoration":
+        return (
+            f"Под искусственное лесовосстановление попадает {_ha(plan['damage_area_ha'])} га, "
+            f"само восстановится {_ha(plan['natural_area_ha'])} га, ориентировочные затраты {_money(plan['total_cost'], plan['currency'])}. "
+            "Разбивка на вкладке «Лес»."
+        )
+    return f"{_ha(burn['total_ha'])} га гари, {plural(burn['contours'], CONTOURS)}, {plural(hot['fire_clusters'], CLUSTERS)}."
+
+
+def intent_actions(intent: str, report: dict[str, Any]) -> list[Event]:
+    largest = report["burn"]["largest"]
+    if intent == "largest" and largest:
+        top = largest[0]
+        return [
+            {
+                "event": "action",
+                "data": {
+                    "type": "focus",
+                    "lon": top["lon"],
+                    "lat": top["lat"],
+                    "zoom": 11,
+                    "scene_id": top["scene_id"],
+                },
+            }
+        ]
+    tabs = {"technogenic": "technogenic", "restoration": "restoration"}
+    if intent in tabs:
+        return [{"event": "action", "data": {"type": "open_tab", "tab": tabs[intent]}}]
+    return []
 
 
 async def _rules(message: str, note: str | None = None) -> AsyncIterator[Event]:
     parsed = parse_request(message, await data_range())
     yield _action(parsed.region, parsed.date_from, parsed.date_to)
     report = await _report(parsed.region, parsed.date_from, parsed.date_to)
-    hints = []
+    notes = [note] if note else []
     if not parsed.region_recognized:
-        hints.append("Регион не распознан, показываю всю территорию мониторинга.")
+        notes.append("Регион не распознан, взята вся территория мониторинга")
     if not parsed.period_recognized:
-        hints.append("Период не назван, беру весь охват данных.")
-    body = " ".join(
-        filter(None, [note, *hints, summarize(parsed.region, parsed.date_from, parsed.date_to, report)])
-    )
-    for word in body.split(" "):
+        notes.append("Период не назван, взят весь охват данных")
+
+    for word in lead_sentence(parsed.intent, parsed.region, report).split(" "):
         yield {"event": "token", "data": {"text": word + " "}}
+    yield build_card(parsed.region, parsed.date_from, parsed.date_to, report, notes)
+    for action in intent_actions(parsed.intent, report):
+        yield action
     yield {"event": "done", "data": {"mode": "rules"}}
 
 
@@ -142,8 +240,16 @@ async def _llm(message: str) -> AsyncIterator[Event]:
         """
         found = find_region(region) or all_regions()[0]
         start, end = date.fromisoformat(date_from), date.fromisoformat(date_to)
-        actions.append(_action(found, start, end))
-        return {"region": found.name} | _digest(await _report(found, start, end))
+        report = await _report(found, start, end)
+        intent = parse_request(message, (date_min, date_max)).intent
+        actions.extend(
+            [
+                _action(found, start, end),
+                build_card(found, start, end, report, []),
+                *intent_actions(intent, report),
+            ]
+        )
+        return {"region": found.name} | _digest(report)
 
     model = ChatOpenAI(
         model=settings.llm_model,
