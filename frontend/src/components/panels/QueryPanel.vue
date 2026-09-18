@@ -2,6 +2,7 @@
 import { CalendarRange, ChevronLeft, Funnel, Layers, Map as MapIcon, MapPinned, PenTool, Satellite, SlidersHorizontal, Square, X } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import BubbleTabs from '@/components/common/BubbleTabs.vue'
+import DateField from '@/components/common/DateField.vue'
 import FoldSection from '@/components/common/FoldSection.vue'
 import MorphPanel from '@/components/common/MorphPanel.vue'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,16 @@ const filtersSummary = computed(() => (ui.activeFilterCount ? `активно: $
 
 function toggleIn<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
+}
+
+function setArea(raw: string) {
+  const value = Number(raw)
+  ui.filters.minContourHa = Number.isFinite(value) && value > 0 ? Math.round(value) : 0
+}
+
+function setConfidence(raw: string) {
+  const value = Number(raw)
+  ui.filters.minConfidence = Number.isFinite(value) ? Math.min(Math.max(value, 0), 1) : 0
 }
 
 function toggleSeverity(value: number) {
@@ -125,14 +136,8 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
 
       <FoldSection title="Период" :summary="periodSummary" :icon="CalendarRange" :open="opened === 'period'" @toggle="toggle('period')">
         <div class="grid grid-cols-2 gap-2">
-          <label class="rounded-2xl bg-surface-3 px-3 py-2 text-[11px] text-muted-foreground">
-            с
-            <input type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" :value="query.dateFrom" :max="query.dateTo" @change="query.setPeriod(($event.target as HTMLInputElement).value, query.dateTo)" />
-          </label>
-          <label class="rounded-2xl bg-surface-3 px-3 py-2 text-[11px] text-muted-foreground">
-            по
-            <input type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" :value="query.dateTo" :min="query.dateFrom" @change="query.setPeriod(query.dateFrom, ($event.target as HTMLInputElement).value)" />
-          </label>
+          <DateField label="с" :model-value="query.dateFrom" :max="query.dateTo" hint="Начало периода. Откроется календарь" @update:model-value="(value: string) => query.setPeriod(value, query.dateTo)" />
+          <DateField label="по" :model-value="query.dateTo" :min="query.dateFrom" hint="Конец периода. Откроется календарь" @update:model-value="(value: string) => query.setPeriod(query.dateFrom, value)" />
         </div>
         <div class="mt-2.5 flex flex-wrap gap-1.5">
           <Button v-tip="'Все даты, за которые загружены сцены'" size="xs" :variant="isFullRange ? 'tonal' : 'outline'" @click="fullRange">Весь охват</Button>
@@ -163,6 +168,19 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
             <div class="mb-1.5 text-xs text-muted-foreground">Площадь контура не меньше, га</div>
             <div class="flex flex-wrap gap-1.5">
               <Button v-for="step in AREA_STEPS" :key="step" v-tip="step ? `Скрыть гари меньше ${step} га` : 'Показывать все гари'" size="xs" :variant="ui.filters.minContourHa === step ? 'tonal' : 'outline'" @click="ui.filters.minContourHa = step">{{ step || 'все' }}</Button>
+              <input
+                v-tip="'Своё значение в гектарах'"
+                type="number"
+                min="0"
+                step="1"
+                inputmode="numeric"
+                placeholder="своё"
+                aria-label="Минимальная площадь контура, га"
+                class="h-7 w-20 rounded-full bg-surface-3 px-3 text-xs tabular-nums outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/50"
+                :class="!AREA_STEPS.includes(ui.filters.minContourHa) && 'ring-2 ring-primary/60'"
+                :value="AREA_STEPS.includes(ui.filters.minContourHa) ? '' : ui.filters.minContourHa"
+                @change="setArea(($event.target as HTMLInputElement).value)"
+              />
             </div>
           </div>
           <div>
@@ -173,6 +191,20 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
             <div class="mb-1.5 text-xs text-muted-foreground">Уверенность модели не ниже</div>
             <div class="flex gap-1.5">
               <Button v-for="step in CONFIDENCE_STEPS" :key="step" v-tip="step ? `Только термоточки с вероятностью горения от ${step}` : 'Все термоточки выше порога модели'" size="xs" :variant="ui.filters.minConfidence === step ? 'tonal' : 'outline'" class="flex-1" @click="ui.filters.minConfidence = step">{{ step ? step.toFixed(1) : 'любая' }}</Button>
+              <input
+                v-tip="'Своё значение от 0 до 1'"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                inputmode="decimal"
+                placeholder="своё"
+                aria-label="Минимальная уверенность модели"
+                class="h-7 w-20 shrink-0 rounded-full bg-surface-3 px-3 text-xs tabular-nums outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/50"
+                :class="!CONFIDENCE_STEPS.includes(ui.filters.minConfidence) && 'ring-2 ring-primary/60'"
+                :value="CONFIDENCE_STEPS.includes(ui.filters.minConfidence) ? '' : ui.filters.minConfidence"
+                @change="setConfidence(($event.target as HTMLInputElement).value)"
+              />
             </div>
           </div>
           <div>

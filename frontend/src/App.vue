@@ -47,10 +47,9 @@ watch([mapReady, booted], async ([map, data]) => {
   const timeline = gsap.timeline()
   if (splash.value) timeline.to(splash.value, { opacity: 0, scale: 1.06, duration: 0.7, ease: 'power2.inOut', onComplete: () => splash.value?.remove() })
   if (chrome.value) {
-    timeline.fromTo(
+    timeline.from(
       chrome.value.querySelectorAll('[data-enter]'),
-      { opacity: 0, y: 26, scale: 0.94 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: 'elastic.out(1, 0.8)', stagger: 0.09, clearProps: 'transform' },
+      { opacity: 0, y: 26, scale: 0.94, duration: 0.9, ease: 'elastic.out(1, 0.8)', stagger: 0.09, clearProps: 'all' },
       '-=0.35',
     )
   }
@@ -65,15 +64,15 @@ onMounted(boot)
     <MapView ref="mapView" @ready="mapReady = true" />
 
     <div ref="chrome" class="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3 sm:p-4">
-      <TopBar data-enter class="opacity-0" />
+      <TopBar data-enter />
 
       <div class="flex min-h-0 flex-1 items-start justify-between gap-3">
-        <QueryPanel data-enter class="pointer-events-auto opacity-0 max-lg:hidden" />
-        <InsightPanel data-enter class="pointer-events-auto opacity-0 max-lg:hidden" />
+        <QueryPanel data-enter class="pointer-events-auto max-lg:hidden" />
+        <InsightPanel data-enter class="pointer-events-auto max-lg:hidden" />
       </div>
 
       <div class="flex justify-center">
-        <TimelineBar data-enter class="pointer-events-auto opacity-0 transition-[opacity,transform] duration-300" :class="ui.compareSceneId && '!pointer-events-none translate-y-6 !opacity-0'" />
+        <TimelineBar data-enter class="pointer-events-auto transition-[opacity,transform] duration-300" :class="ui.compareSceneId && '!pointer-events-none translate-y-6 !opacity-0'" />
       </div>
     </div>
 

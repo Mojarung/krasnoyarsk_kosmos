@@ -19,7 +19,7 @@ watch(
     expanded.value = open
     await nextTick()
     Flip.from(state, { duration: 0.62, ease: 'expo.out', scale: false, simple: true })
-    if (body.value) gsap.fromTo(body.value, { opacity: 0, y: open ? 10 : 0 }, { opacity: 1, y: 0, duration: 0.4, delay: 0.12, ease: 'power2.out' })
+    if (body.value) gsap.from(body.value, { opacity: 0, y: open ? 10 : 0, duration: 0.4, delay: 0.12, ease: 'power2.out', clearProps: 'all' })
   },
 )
 </script>
