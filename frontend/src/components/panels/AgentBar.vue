@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUp, Sparkles, X } from '@lucide/vue'
+import { ArrowUp, Search, X } from '@lucide/vue'
 import { onClickOutside } from '@vueuse/core'
 import { gsap } from 'gsap'
 import { computed, nextTick, ref, watch } from 'vue'
@@ -64,7 +64,7 @@ function close() {
 <template>
   <div ref="root" class="relative w-full max-w-[560px]">
     <form class="panel flex h-12 items-center gap-2 !rounded-full pl-4 pr-1.5 transition-shadow duration-300 focus-within:shadow-[0_0_0_2px_var(--ring)]" @submit.prevent="ask()">
-      <Sparkles class="size-4 shrink-0 text-primary" />
+      <Search class="size-4 shrink-0 text-muted-foreground" />
       <input
         v-model="input"
         class="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"

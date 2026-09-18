@@ -62,7 +62,7 @@ watch(
       <span class="shrink-0 tabular-nums">{{ fmt.date(query.dateFrom) }} - {{ fmt.date(query.dateTo) }}</span>
     </div>
 
-    <div class="thin-scroll relative flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-3">
+    <div class="thin-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-3">
       <div v-if="query.error" class="rounded-2xl bg-destructive/15 px-4 py-3 text-sm text-destructive">{{ query.error }}</div>
       <div v-else-if="!query.report" class="space-y-3">
         <Skeleton class="h-28 rounded-[24px]" />

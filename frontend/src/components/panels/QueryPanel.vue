@@ -75,7 +75,7 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
       <Button v-tip="'Свернуть панель, карта станет шире'" variant="ghost" size="icon-sm" aria-label="Свернуть панель запроса" @click="ui.queryOpen = false"><ChevronLeft /></Button>
     </header>
 
-    <div class="thin-scroll flex-1 space-y-1 overflow-y-auto p-2">
+    <div class="thin-scroll min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
       <FoldSection title="Территория" :summary="query.regionName" :icon="MapPinned" :open="opened === 'area'" @toggle="toggle('area')">
         <div class="flex flex-wrap gap-1.5">
           <Button v-for="region in regions" :key="region.id" size="sm" :variant="query.regionId === region.id ? 'tonal' : 'outline'" @click="query.selectRegion(region.id)">

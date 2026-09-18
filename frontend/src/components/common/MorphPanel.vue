@@ -26,7 +26,7 @@ watch(
 
 <template>
   <section ref="shell" :class="cn('panel pointer-events-auto overflow-hidden', expanded ? props.class : cn('!rounded-full', props.pillClass))">
-    <div ref="body" class="h-full">
+    <div ref="body" class="flex min-h-0 flex-1 flex-col">
       <slot v-if="expanded" />
       <slot v-else name="pill" />
     </div>

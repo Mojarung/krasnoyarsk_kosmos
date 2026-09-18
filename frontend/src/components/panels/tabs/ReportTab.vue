@@ -98,6 +98,7 @@ async function save(path: string, key: string) {
       </div>
     </div>
 
+    <div class="sticky bottom-0 -mx-4 -mb-4 bg-gradient-to-t from-surface-1 from-60% to-transparent px-4 pb-4 pt-3">
     <Popover>
       <PopoverTrigger as-child>
         <Button v-tip="'Контуры в GeoJSON, Shapefile, GeoPackage, KML и справка в JSON, CSV, XLSX, PDF'" variant="tonal" class="w-full"><Download />Выгрузить контуры и справку</Button>
@@ -123,5 +124,6 @@ async function save(path: string, key: string) {
         <p class="mt-3 text-[11px] leading-snug text-muted-foreground">Атрибуты: id контура, степень, площадь в га. Площадь считается в UTM-зоне сцены, координаты в WGS 84.</p>
       </PopoverContent>
     </Popover>
+    </div>
   </div>
 </template>
