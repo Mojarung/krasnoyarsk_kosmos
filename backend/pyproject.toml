@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Информационно-аналитический сервис мониторинга природных пожаров"
 requires-python = ">=3.13"
 dependencies = [
+    "affine>=3.0.1",
     "alembic>=1.20.0",
     "asyncpg>=0.31.0",
     "boto3>=1.43.97",
@@ -26,9 +27,9 @@ dependencies = [
     "python-multipart>=0.0.32",
     "rasterio>=1.5.1",
     "redis>=8.1.0",
+    "scipy>=1.18.1",
     "shapely>=2.1.2",
     "sqlalchemy[asyncio]>=2.0.54",
-    "sse-starlette>=3.4.11",
     "uvicorn[standard]>=0.53.0",
 ]
 

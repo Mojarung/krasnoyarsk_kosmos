@@ -18,7 +18,7 @@ src = ["ml/src", "backend/src", "backend/tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003", "B008"]
+ignore = ["E501", "RUF001", "RUF002", "RUF003", "B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests", "ml/tests"]
