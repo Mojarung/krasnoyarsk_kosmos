@@ -59,16 +59,19 @@ _REFRESH_SOURCES = text(
 
 _FLAG_HOTSPOTS = text(
     """
-    UPDATE hotspots h SET persistent = flagged.value
-    FROM (
-        SELECT h2.id, EXISTS (
-            SELECT 1 FROM persistent_sources p
-            WHERE p.epsg = h2.epsg
-              AND h2.x_utm BETWEEN p.x_utm - :radius AND p.x_utm + :radius
-              AND h2.y_utm BETWEEN p.y_utm - :radius AND p.y_utm + :radius
-        ) AS value
+    WITH offsets AS (
+        SELECT dx, dy FROM (VALUES (-1), (0), (1)) a(dx) CROSS JOIN (VALUES (-1), (0), (1)) b(dy)
+    ), near_source AS (
+        SELECT DISTINCT p.epsg, floor(p.x_utm / :step)::int + o.dx AS gx, floor(p.y_utm / :step)::int + o.dy AS gy
+        FROM persistent_sources p CROSS JOIN offsets o
+    ), flagged AS (
+        SELECT h2.id, (n.epsg IS NOT NULL) AS value
         FROM hotspots h2
-    ) flagged
+        LEFT JOIN near_source n ON n.epsg = h2.epsg
+             AND n.gx = floor(h2.x_utm / :step)::int AND n.gy = floor(h2.y_utm / :step)::int
+    )
+    UPDATE hotspots h SET persistent = flagged.value
+    FROM flagged
     WHERE flagged.id = h.id AND h.persistent IS DISTINCT FROM flagged.value
     """
 )
@@ -98,5 +101,5 @@ async def refresh_persistent_sources(session: AsyncSession) -> bool:
             "min_share": s.persistent_min_pass_share,
         },
     )
-    await session.execute(_FLAG_HOTSPOTS, {"radius": s.persistent_radius_m})
+    await session.execute(_FLAG_HOTSPOTS, {"step": GRID_STEP_M})
     return True
