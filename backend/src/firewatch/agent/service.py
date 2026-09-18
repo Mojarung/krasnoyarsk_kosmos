@@ -134,13 +134,13 @@ def build_card(
                     "label": "Пройдено огнём",
                     "value": burn["total_ha"],
                     "unit": "га",
-                    "sub": f"{burn['contours']} контуров",
+                    "sub": plural(burn["contours"], CONTOURS),
                 },
                 {
                     "label": "Очагов пожаров",
                     "value": hot["fire_clusters"],
                     "unit": "",
-                    "sub": f"{hot['fire']} термоточек",
+                    "sub": plural(hot["fire"], HOTSPOTS),
                 },
                 {
                     "label": "Отсеяно срабатываний",
