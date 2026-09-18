@@ -32,6 +32,7 @@
   --input: #d7c2b8;
   --ring: #8f4c25;
   --scrim: rgb(255 248 245 / 0.72);
+  color-scheme: light;
 
   --sev-1: #e9b400;
   --sev-2: #f77f00;
@@ -66,6 +67,7 @@
   --input: #4a3d35;
   --ring: #ffb693;
   --scrim: rgb(18 15 13 / 0.66);
+  color-scheme: dark;
 
   --sev-1: #ffd166;
   --sev-2: #f77f00;
@@ -161,6 +163,29 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
+}
+
+.fw-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  max-width: 260px;
+  padding: 7px 12px;
+  border-radius: 14px;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  scale: 0.92;
+  transition: opacity 0.16s ease, scale 0.35s var(--ease-spring);
+  box-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.55);
+}
+.fw-tip[data-open='true'] {
+  opacity: 1;
+  scale: 1;
 }
 
 .maplibregl-map {

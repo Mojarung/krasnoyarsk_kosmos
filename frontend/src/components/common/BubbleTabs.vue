@@ -9,6 +9,7 @@ export interface BubbleOption<V extends string> {
   label: string
   icon?: Component
   badge?: string | number
+  hint?: string
 }
 
 const props = withDefaults(defineProps<{ options: BubbleOption<T>[]; size?: 'sm' | 'md'; stretch?: boolean }>(), {
@@ -61,6 +62,7 @@ useResizeObserver(root, () => move(false))
       v-for="option in props.options"
       :key="option.value"
       :ref="(el) => el && (buttons[props.options.indexOf(option)] = el as HTMLElement)"
+      v-tip="option.hint"
       type="button"
       role="tab"
       :aria-selected="model === option.value"

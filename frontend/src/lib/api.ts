@@ -55,7 +55,7 @@ export const api = {
   scene: (id: string) => request<SceneSummary>(`${BASE}/scenes/${id}`),
   scenes: (params: Record<string, string>) =>
     request<{ total: number; items: SceneSummary[] }>(`${BASE}/scenes?${new URLSearchParams(params)}`),
-  reprocess: (id: string) => post<{ job_id: string }>(`${BASE}/scenes/${id}/reprocess`, {}),
+  reprocess: (id: string) => post<{ job_id: string; scene_id: string }>(`${BASE}/scenes/${id}/reprocess`, {}),
   uploadScene: (form: FormData) => request<{ job_id: string; scene_id: string }>(`${BASE}/scenes`, { method: 'POST', body: form }),
   jobs: () => request<{ counts: Record<string, number>; items: import('./types').JobEvent[] }>(`${BASE}/jobs?limit=12`),
   pipelineMetrics: () => request<PipelineMetrics>(`${BASE}/metrics/pipeline`),

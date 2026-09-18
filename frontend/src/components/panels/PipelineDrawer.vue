@@ -47,7 +47,12 @@ const message = ref<{ tone: 'ok' | 'error'; text: string } | null>(null)
 const stages = computed(() => query.meta?.pipeline ?? [])
 const roles = computed(() => [...REQUIRED[kind.value], 'mask'])
 const missing = computed(() => REQUIRED[kind.value].filter((role) => !files.value[role]))
+const doneShare = computed(() => (live.total ? ((live.jobCounts.done ?? 0) / live.total) * 100 : 0))
 const datesReady = computed(() => (kind.value === 'af' ? !!acquiredAt.value : !!datePre.value && !!datePost.value))
+
+function track(result: { job_id: string; scene_id: string }) {
+  live.watch({ id: result.job_id, scene_id: result.scene_id, status: 'queued', stage: 'queued', progress: 0, message: 'В очереди RabbitMQ' })
+}
 
 function assign(list: FileList | null) {
   if (!list) return
@@ -79,6 +84,7 @@ async function submit() {
   message.value = null
   try {
     const result = await api.uploadScene(form)
+    track(result)
     message.value = { tone: 'ok', text: `Сцена ${result.scene_id} в очереди. Ход обработки ниже.` }
     files.value = {}
   } catch (e) {
@@ -92,7 +98,7 @@ async function replayRandom() {
   const pick = kind.value
   const list = await api.scenes({ kind: pick, status: 'ready', limit: '40' })
   const scene = list.items[Math.floor(Math.random() * list.items.length)]
-  if (scene) await api.reprocess(scene.id)
+  if (scene) track(await api.reprocess(scene.id))
 }
 
 onMounted(() => live.loadJobs())
@@ -109,7 +115,7 @@ onMounted(() => live.loadJobs())
       <div class="thin-scroll space-y-4 overflow-y-auto px-6 pb-6 pt-4">
         <div class="flex items-center justify-between gap-3">
           <BubbleTabs v-model="kind" :options="KINDS" size="sm" />
-          <Button size="sm" variant="secondary" @click="replayRandom"><RefreshCw />Прогнать готовую сцену</Button>
+          <Button v-tip="'Берёт случайную готовую сцену и проводит её через весь конвейер заново. Удобно показать живой ход обработки без файлов под рукой'" size="sm" variant="secondary" @click="replayRandom"><RefreshCw />Прогнать готовую сцену</Button>
         </div>
 
         <label
@@ -132,10 +138,10 @@ onMounted(() => live.loadJobs())
         </div>
 
         <div class="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-          <label v-if="kind === 'af'" class="col-span-2 rounded-2xl bg-surface-2 px-3 py-2">Момент пролёта (UTC)<input v-model="acquiredAt" type="datetime-local" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]" /></label>
+          <label v-if="kind === 'af'" class="col-span-2 rounded-2xl bg-surface-2 px-3 py-2">Момент пролёта (UTC)<input v-model="acquiredAt" type="datetime-local" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" /></label>
           <template v-else>
-            <label class="rounded-2xl bg-surface-2 px-3 py-2">Снимок до<input v-model="datePre" type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]" /></label>
-            <label class="rounded-2xl bg-surface-2 px-3 py-2">Снимок после<input v-model="datePost" type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]" /></label>
+            <label class="rounded-2xl bg-surface-2 px-3 py-2">Снимок до<input v-model="datePre" type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" /></label>
+            <label class="rounded-2xl bg-surface-2 px-3 py-2">Снимок после<input v-model="datePost" type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" /></label>
           </template>
         </div>
 
@@ -144,15 +150,26 @@ onMounted(() => live.loadJobs())
         </Button>
         <p v-if="message" class="text-xs" :class="message.tone === 'ok' ? 'text-tertiary' : 'text-destructive'">{{ message.text }}</p>
 
-        <div>
-          <div class="label-caps mb-2 flex items-center justify-between">
-            <span>Задания</span>
-            <span class="normal-case tracking-normal">готово {{ live.jobCounts.done ?? 0 }} · в очереди {{ live.pending }}</span>
+        <div class="rounded-[22px] bg-surface-2 p-4">
+          <div class="flex items-baseline justify-between text-[13px]">
+            <span class="font-medium">Обработано {{ live.jobCounts.done ?? 0 }} из {{ live.total }}</span>
+            <span class="text-xs text-muted-foreground">{{ live.pending ? `в очереди ${live.pending}` : 'очередь пуста' }}</span>
           </div>
-          <TransitionGroup tag="div" class="space-y-1.5" move-class="transition-transform duration-500 ease-spring" enter-active-class="transition duration-500 ease-spring" enter-from-class="opacity-0 -translate-y-3 scale-95">
-            <JobRow v-for="job in live.jobs.slice(0, 6)" :key="job.id" :job="job" :stages="stages" />
-          </TransitionGroup>
-          <p v-if="!live.jobs.length" class="text-xs text-muted-foreground">Заданий пока нет.</p>
+          <div class="mt-2.5 h-2 overflow-hidden rounded-full bg-surface-3">
+            <div class="h-full rounded-full bg-primary transition-[width] duration-700 ease-emphasized" :style="{ width: `${doneShare}%` }" />
+          </div>
+          <div class="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span class="truncate">{{ live.running.length ? `Сейчас: ${live.running.join(', ')}` : 'Воркеры ждут новые сцены' }}</span>
+            <span v-if="live.metrics" class="shrink-0 tabular-nums">{{ live.metrics.scenes_last_minute }} сцен/мин</span>
+          </div>
+          <p v-if="live.jobCounts.failed" class="mt-1.5 text-xs text-destructive">С ошибкой: {{ live.jobCounts.failed }}</p>
+        </div>
+
+        <div v-if="live.watchedJobs.length">
+          <div class="label-caps mb-2">Ваши запуски</div>
+          <div class="space-y-1.5">
+            <JobRow v-for="job in live.watchedJobs" :key="job.id" :job="job" :stages="stages" />
+          </div>
         </div>
       </div>
     </DialogContent>

@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { BellPlus, ChevronLeft, Layers, Map as MapIcon, PenTool, Satellite, SlidersHorizontal, Square, X } from '@lucide/vue'
-import { useClipboard } from '@vueuse/core'
+import { CalendarRange, ChevronLeft, Layers, Map as MapIcon, MapPinned, PenTool, Satellite, SlidersHorizontal, Square, X } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import BubbleTabs from '@/components/common/BubbleTabs.vue'
+import FoldSection from '@/components/common/FoldSection.vue'
 import MorphPanel from '@/components/common/MorphPanel.vue'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { api, curlFor } from '@/lib/api'
 import { fmt } from '@/lib/format'
-import { useLiveStore } from '@/stores/live'
 import { AOI_REGION_ID, useQueryStore } from '@/stores/query'
 import { type Basemap, useUiStore } from '@/stores/ui'
 
+type Section = 'area' | 'period' | 'layers'
+
 const query = useQueryStore()
 const ui = useUiStore()
-const live = useLiveStore()
-const { copy, copied } = useClipboard()
 
 const FIRE_SEASON = { from: '-04-01', to: '-10-31' }
-const BASEMAPS: { value: Basemap; label: string; icon: typeof MapIcon }[] = [
-  { value: 'dark', label: 'Схема', icon: MapIcon },
-  { value: 'satellite', label: 'Спутник', icon: Satellite },
+const BASEMAPS: { value: Basemap; label: string; icon: typeof MapIcon; hint: string }[] = [
+  { value: 'dark', label: 'Схема', icon: MapIcon, hint: 'Векторная карта OpenFreeMap с русскими подписями' },
+  { value: 'satellite', label: 'Спутник', icon: Satellite, hint: 'Снимки Esri World Imagery под подписями' },
 ]
+
+const opened = ref<Section | null>('area')
 
 const regions = computed(() => [
   { id: AOI_REGION_ID, name: 'Вся территория' },
@@ -38,8 +38,14 @@ const activeYear = computed(() => {
   return query.dateFrom === year + FIRE_SEASON.from && query.dateTo === year + FIRE_SEASON.to ? Number(year) : null
 })
 const isFullRange = computed(() => query.dateFrom === query.meta?.data.date_min && query.dateTo === query.meta?.data.date_max)
-const zoneName = ref('')
-const savingZone = ref(false)
+const periodSummary = computed(() => (activeYear.value ? `сезон ${activeYear.value}` : isFullRange.value ? 'весь охват' : `${fmt.date(query.dateFrom)} - ${fmt.date(query.dateTo)}`))
+const layersSummary = computed(() =>
+  [ui.basemap === 'satellite' ? 'спутник' : 'схема', ui.showSeverity && 'гари', ui.showFiltered && 'отсеянные', ui.showSources && 'источники'].filter(Boolean).join(', '),
+)
+
+function toggle(section: Section) {
+  opened.value = opened.value === section ? null : section
+}
 
 function pickYear(year: number) {
   query.setPeriod(year + FIRE_SEASON.from, year + FIRE_SEASON.to)
@@ -53,101 +59,67 @@ function fullRange() {
 function toggleDraw(mode: 'polygon' | 'rectangle') {
   ui.drawMode = ui.drawMode === mode ? 'idle' : mode
 }
-
-async function watchZone() {
-  if (!query.geometry) return
-  savingZone.value = true
-  try {
-    await api.createZone(zoneName.value.trim() || `${query.regionName}, ${fmt.date(new Date().toISOString())}`, query.geometry, null)
-    zoneName.value = ''
-    await live.loadZones()
-  } finally {
-    savingZone.value = false
-  }
-}
 </script>
 
 <template>
-  <MorphPanel :open="ui.queryOpen" class="flex max-h-full w-[340px] flex-col" pill-class="w-fit">
+  <MorphPanel :open="ui.queryOpen" class="flex max-h-full w-[330px] flex-col" pill-class="w-fit">
     <template #pill>
-      <button type="button" class="flex h-12 items-center gap-2.5 pl-4 pr-5 text-sm font-medium" @click="ui.queryOpen = true">
+      <button v-tip="'Развернуть панель запроса'" type="button" class="flex h-12 items-center gap-2.5 pl-4 pr-5 text-sm font-medium" @click="ui.queryOpen = true">
         <SlidersHorizontal class="size-4 text-primary" />
         <span class="max-w-44 truncate">{{ query.regionName }}</span>
       </button>
     </template>
 
-    <header class="flex items-center justify-between px-5 pt-4">
+    <header class="flex items-center justify-between pl-5 pr-3 pt-3">
       <span class="label-caps">Запрос</span>
-      <Button variant="ghost" size="icon-sm" aria-label="Свернуть панель запроса" @click="ui.queryOpen = false"><ChevronLeft /></Button>
+      <Button v-tip="'Свернуть панель, карта станет шире'" variant="ghost" size="icon-sm" aria-label="Свернуть панель запроса" @click="ui.queryOpen = false"><ChevronLeft /></Button>
     </header>
 
-    <div class="thin-scroll flex-1 space-y-5 overflow-y-auto px-5 pb-5 pt-2">
-      <div>
-        <h3 class="mb-2 text-[13px] font-medium">Территория</h3>
+    <div class="thin-scroll flex-1 space-y-1 overflow-y-auto p-2">
+      <FoldSection title="Территория" :summary="query.regionName" :icon="MapPinned" :open="opened === 'area'" @toggle="toggle('area')">
         <div class="flex flex-wrap gap-1.5">
-          <Button
-            v-for="region in regions"
-            :key="region.id"
-            size="sm"
-            :variant="query.regionId === region.id ? 'tonal' : 'outline'"
-            @click="query.selectRegion(region.id)"
-          >
+          <Button v-for="region in regions" :key="region.id" size="sm" :variant="query.regionId === region.id ? 'tonal' : 'outline'" @click="query.selectRegion(region.id)">
             {{ region.name }}
           </Button>
         </div>
-        <div class="mt-2.5 flex gap-1.5">
-          <Button size="sm" :variant="ui.drawMode === 'polygon' ? 'default' : 'secondary'" class="flex-1" @click="toggleDraw('polygon')">
+        <div class="mt-3 flex gap-1.5">
+          <Button v-tip="'Нарисовать свою территорию: вершины кликами, замкнуть на первой точке'" size="sm" :variant="ui.drawMode === 'polygon' ? 'default' : 'secondary'" class="flex-1" @click="toggleDraw('polygon')">
             <component :is="ui.drawMode === 'polygon' ? X : PenTool" />{{ ui.drawMode === 'polygon' ? 'Отмена' : 'Полигон' }}
           </Button>
-          <Button size="sm" :variant="ui.drawMode === 'rectangle' ? 'default' : 'secondary'" class="flex-1" @click="toggleDraw('rectangle')">
+          <Button v-tip="'Задать прямоугольник двумя кликами по противоположным углам'" size="sm" :variant="ui.drawMode === 'rectangle' ? 'default' : 'secondary'" class="flex-1" @click="toggleDraw('rectangle')">
             <component :is="ui.drawMode === 'rectangle' ? X : Square" />{{ ui.drawMode === 'rectangle' ? 'Отмена' : 'Прямоугольник' }}
           </Button>
         </div>
         <p v-if="ui.drawMode !== 'idle'" class="mt-2 text-xs text-primary">
           {{ ui.drawMode === 'polygon' ? 'Ставьте вершины кликами, замкните контур на первой точке' : 'Кликните два противоположных угла' }}
         </p>
-      </div>
+      </FoldSection>
 
-      <div>
-        <h3 class="mb-2 text-[13px] font-medium">Период</h3>
+      <FoldSection title="Период" :summary="periodSummary" :icon="CalendarRange" :open="opened === 'period'" @toggle="toggle('period')">
         <div class="grid grid-cols-2 gap-2">
-          <label class="rounded-2xl bg-surface-2 px-3 py-2 text-[11px] text-muted-foreground">
+          <label class="rounded-2xl bg-surface-3 px-3 py-2 text-[11px] text-muted-foreground">
             с
-            <input type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]" :value="query.dateFrom" :max="query.dateTo" @change="query.setPeriod(($event.target as HTMLInputElement).value, query.dateTo)" />
+            <input type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" :value="query.dateFrom" :max="query.dateTo" @change="query.setPeriod(($event.target as HTMLInputElement).value, query.dateTo)" />
           </label>
-          <label class="rounded-2xl bg-surface-2 px-3 py-2 text-[11px] text-muted-foreground">
+          <label class="rounded-2xl bg-surface-3 px-3 py-2 text-[11px] text-muted-foreground">
             по
-            <input type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]" :value="query.dateTo" :min="query.dateFrom" @change="query.setPeriod(query.dateFrom, ($event.target as HTMLInputElement).value)" />
+            <input type="date" class="mt-0.5 block w-full bg-transparent text-sm text-foreground outline-none" :value="query.dateTo" :min="query.dateFrom" @change="query.setPeriod(query.dateFrom, ($event.target as HTMLInputElement).value)" />
           </label>
         </div>
-        <div class="mt-2 flex flex-wrap gap-1.5">
-          <Button size="xs" :variant="isFullRange ? 'tonal' : 'outline'" @click="fullRange">Весь охват</Button>
-          <Button v-for="year in years" :key="year" size="xs" :variant="activeYear === year ? 'tonal' : 'outline'" @click="pickYear(year)">{{ year }}</Button>
+        <div class="mt-2.5 flex flex-wrap gap-1.5">
+          <Button v-tip="'Все даты, за которые загружены сцены'" size="xs" :variant="isFullRange ? 'tonal' : 'outline'" @click="fullRange">Весь охват</Button>
+          <Button v-for="year in years" :key="year" v-tip="`Пожароопасный сезон ${year}: апрель - октябрь`" size="xs" :variant="activeYear === year ? 'tonal' : 'outline'" @click="pickYear(year)">{{ year }}</Button>
         </div>
-      </div>
+      </FoldSection>
 
-      <div>
-        <h3 class="mb-2 flex items-center gap-1.5 text-[13px] font-medium"><Layers class="size-3.5" />Слои</h3>
-        <div class="space-y-2.5 rounded-[20px] bg-surface-2 p-3.5 text-[13px]">
-          <label class="flex items-center justify-between gap-3">Гари и степени поражения<Switch v-model="ui.showSeverity" /></label>
-          <label class="flex items-center justify-between gap-3">Отфильтрованные срабатывания<Switch v-model="ui.showFiltered" /></label>
-          <label class="flex items-center justify-between gap-3">Постоянные источники тепла<Switch v-model="ui.showSources" /></label>
+      <FoldSection title="Слои" :summary="layersSummary" :icon="Layers" :open="opened === 'layers'" @toggle="toggle('layers')">
+        <div class="space-y-3 text-[13px]">
+          <label v-tip="'Контуры гарей и полигоны трёх степеней поражения'" class="flex items-center justify-between gap-3">Гари и степени<Switch v-model="ui.showSeverity" /></label>
+          <label v-tip="'Техногенные источники и блики, которые модель отсеяла. Кольца на карте, причина в подсказке точки'" class="flex items-center justify-between gap-3">Отсеянные срабатывания<Switch v-model="ui.showFiltered" /></label>
+          <label v-tip="'Факелы и печи, найденные по истории: горят почти в каждом пролёте из года в год'" class="flex items-center justify-between gap-3">Постоянные источники<Switch v-model="ui.showSources" /></label>
         </div>
-        <BubbleTabs v-model="ui.basemap" :options="BASEMAPS" size="sm" stretch class="mt-2.5" />
-      </div>
-
-      <div>
-        <h3 class="mb-2 text-[13px] font-medium">Следить за этой зоной</h3>
-        <div class="flex gap-1.5">
-          <input v-model="zoneName" placeholder="Название зоны" class="h-8 min-w-0 flex-1 rounded-full bg-surface-2 px-3.5 text-[13px] outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/50" />
-          <Button size="sm" variant="secondary" :disabled="savingZone || !query.geometry" @click="watchZone"><BellPlus />Создать</Button>
-        </div>
-        <p class="mt-1.5 text-xs leading-snug text-muted-foreground">Новая термоточка в зоне придёт алертом сюда и на webhook (задаётся через API).</p>
-      </div>
-
-      <Button v-if="query.params" variant="outline" size="sm" class="w-full font-mono text-xs" @click="copy(curlFor('/api/v1/query', query.params))">
-        {{ copied ? 'Скопировано' : 'Скопировать запрос как curl' }}
-      </Button>
+        <BubbleTabs v-model="ui.basemap" :options="BASEMAPS" size="sm" stretch class="mt-3.5" />
+      </FoldSection>
     </div>
   </MorphPanel>
 </template>

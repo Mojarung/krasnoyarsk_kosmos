@@ -14,11 +14,11 @@ import { type InsightTab, useUiStore } from '@/stores/ui'
 const query = useQueryStore()
 const ui = useUiStore()
 
-const TABS: { value: InsightTab; label: string; icon: typeof FileText }[] = [
-  { value: 'report', label: 'Справка', icon: FileText },
-  { value: 'metrics', label: 'Метрики', icon: BarChart3 },
-  { value: 'restoration', label: 'Лес', icon: Sprout },
-  { value: 'technogenic', label: 'Фильтр', icon: Factory },
+const TABS: { value: InsightTab; label: string; icon: typeof FileText; hint: string }[] = [
+  { value: 'report', label: 'Справка', icon: FileText, hint: 'Площадь гари, степени поражения, очаги и выгрузка' },
+  { value: 'metrics', label: 'Метрики', icon: BarChart3, hint: 'Качество моделей на эталоне и статистика термоточек' },
+  { value: 'restoration', label: 'Лес', icon: Sprout, hint: 'План лесовосстановления и оценка затрат' },
+  { value: 'technogenic', label: 'Фильтр', icon: Factory, hint: 'Что отсеяно как техногенное и почему' },
 ]
 const VIEWS = {
   report: defineAsyncComponent(() => import('./tabs/ReportTab.vue')),
@@ -45,7 +45,7 @@ watch(
 <template>
   <MorphPanel :open="ui.insightOpen" class="flex max-h-full w-[420px] flex-col" pill-class="w-fit">
     <template #pill>
-      <button type="button" class="flex h-12 items-center gap-2.5 pl-4 pr-5 text-sm font-medium" @click="ui.insightOpen = true">
+      <button v-tip="'Развернуть аналитику'" type="button" class="flex h-12 items-center gap-2.5 pl-4 pr-5 text-sm font-medium" @click="ui.insightOpen = true">
         <FileText class="size-4 text-primary" />
         <span v-if="query.report" class="tabular-nums">{{ fmt.ha(query.report.burn.total_ha) }} га</span>
         <span v-else>Аналитика</span>
@@ -54,7 +54,7 @@ watch(
 
     <header class="flex items-center gap-2 px-4 pt-4">
       <BubbleTabs v-model="ui.insightTab" :options="TABS" size="sm" stretch />
-      <Button variant="ghost" size="icon-sm" aria-label="Свернуть аналитику" @click="ui.insightOpen = false"><ChevronRight /></Button>
+      <Button v-tip="'Свернуть панель, карта станет шире'" variant="ghost" size="icon-sm" aria-label="Свернуть аналитику" @click="ui.insightOpen = false"><ChevronRight /></Button>
     </header>
 
     <div class="flex items-center justify-between px-5 pt-3 text-xs text-muted-foreground">

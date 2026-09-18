@@ -148,10 +148,10 @@ onBeforeUnmount(stop)
 <template>
   <section class="panel flex w-full max-w-[860px] items-center gap-3 px-3 py-2.5" aria-label="Шкала времени">
     <div class="flex shrink-0 items-center gap-1">
-      <Button size="icon-lg" :variant="ui.playing ? 'tonal' : 'default'" :aria-label="ui.playing ? 'Пауза' : 'Проиграть период'" @click="play">
+      <Button v-tip="ui.playing ? 'Пауза' : 'Проиграть выбранный период: термоточки вспыхивают по дням, гари проявляются по дате снимка'" size="icon-lg" :variant="ui.playing ? 'tonal' : 'default'" :aria-label="ui.playing ? 'Пауза' : 'Проиграть период'" @click="play">
         <component :is="ui.playing ? Pause : Play" class="!size-5" />
       </Button>
-      <Button v-if="ui.playhead != null" size="icon-sm" variant="ghost" aria-label="Сбросить проигрывание" @click="stop"><RotateCcw /></Button>
+      <Button v-if="ui.playhead != null" v-tip="'Остановить и показать весь период'" size="icon-sm" variant="ghost" aria-label="Сбросить проигрывание" @click="stop"><RotateCcw /></Button>
     </div>
 
     <div class="min-w-0 flex-1">

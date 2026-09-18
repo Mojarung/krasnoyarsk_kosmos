@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
 import type { SceneSummary } from '@/lib/types'
+import { useLiveStore } from '@/stores/live'
 import { useUiStore } from '@/stores/ui'
 
 type Composite = 'rgb' | 'swir' | 'sar' | 'dnbr'
@@ -15,12 +16,13 @@ interface Confusion { tp: number; fp: number; fn: number }
 
 const emit = defineEmits<{ quicklook: [name: string] }>()
 const ui = useUiStore()
+const live = useLiveStore()
 
 const COMPOSITES = [
-  { value: 'rgb' as const, label: 'Видимый' },
-  { value: 'swir' as const, label: 'SWIR' },
-  { value: 'sar' as const, label: 'Радар' },
-  { value: 'dnbr' as const, label: 'dNBR' },
+  { value: 'rgb' as const, label: 'Видимый', hint: 'Естественные цвета, каналы B4-B3-B2' },
+  { value: 'swir' as const, label: 'SWIR', hint: 'B12-B8A-B4: гарь тёмно-красная, растительность зелёная' },
+  { value: 'sar' as const, label: 'Радар', hint: 'Sentinel-1 VV, VH и их разность. Видит сквозь дым и облака' },
+  { value: 'dnbr' as const, label: 'dNBR', hint: 'Разность индекса гарей до и после: чем теплее цвет, тем сильнее поражение' },
 ]
 
 const scene = shallowRef<SceneSummary | null>(null)
@@ -65,7 +67,9 @@ function onPointer(event: PointerEvent) {
 }
 
 async function reprocess() {
-  if (scene.value) await api.reprocess(scene.value.id)
+  if (!scene.value) return
+  const result = await api.reprocess(scene.value.id)
+  live.watch({ id: result.job_id, scene_id: result.scene_id, status: 'queued', stage: 'queued', progress: 0, message: 'В очереди RabbitMQ' })
   ui.pipelineOpen = true
 }
 </script>
@@ -78,8 +82,8 @@ async function reprocess() {
         <div v-if="scene?.date_pre && scene.date_post" class="text-xs text-muted-foreground">{{ fmt.date(scene.date_pre) }} → {{ fmt.date(scene.date_post) }} · облачность {{ fmt.pct(scene.cloud_frac) }}</div>
       </div>
       <div class="flex shrink-0 items-center gap-1">
-        <Button variant="ghost" size="icon-sm" aria-label="Обработать сцену заново" @click="reprocess"><RefreshCw /></Button>
-        <Button variant="secondary" size="icon-sm" aria-label="Закрыть сравнение" @click="ui.compareSceneId = null"><X /></Button>
+        <Button v-tip="'Прогнать сцену через конвейер заново'" variant="ghost" size="icon-sm" aria-label="Обработать сцену заново" @click="reprocess"><RefreshCw /></Button>
+        <Button v-tip="'Закрыть и вернуться к запросу'" variant="secondary" size="icon-sm" aria-label="Закрыть сравнение" @click="ui.compareSceneId = null"><X /></Button>
       </div>
     </header>
 
@@ -115,7 +119,7 @@ async function reprocess() {
 
     <div v-if="isBurn" class="flex flex-wrap items-center justify-between gap-2">
       <BubbleTabs v-model="composite" :options="COMPOSITES" size="sm" />
-      <label class="flex items-center gap-2 text-xs text-muted-foreground"><Layers class="size-3.5" />степени<Switch v-model="showSeverity" /></label>
+      <label v-tip="'Наложить полигоны степеней поражения на снимок'" class="flex items-center gap-2 text-xs text-muted-foreground"><Layers class="size-3.5" />степени<Switch v-model="showSeverity" /></label>
     </div>
 
     <div v-if="isBurn && stats.burn_ha != null" class="grid grid-cols-4 gap-1.5 text-center text-xs">
