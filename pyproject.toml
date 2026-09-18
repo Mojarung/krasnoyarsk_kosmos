@@ -1,0 +1,32 @@
+[project]
+name = "firewatch-workspace"
+version = "0.1.0"
+description = "Двухэтапный мониторинг природных пожаров: ML-модули и информационно-аналитический сервис"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["ml", "backend"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+src = ["ml/src", "backend/src", "backend/tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "ml/tests"]
+asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.8",
+]
