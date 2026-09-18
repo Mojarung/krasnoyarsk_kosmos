@@ -15,3 +15,5 @@ dist/
 .vscode/
 *.log
 submission.csv
+research/af/results/*.pkl
+research/af/results/*.npy

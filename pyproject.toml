@@ -14,7 +14,7 @@ members = ["ml", "backend"]
 [tool.ruff]
 line-length = 110
 target-version = "py313"
-src = ["ml/src", "backend/src", "backend/tests"]
+src = ["ml/src", "backend/src", "backend/tests", "research/af"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]

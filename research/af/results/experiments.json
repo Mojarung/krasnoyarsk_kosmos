@@ -1,0 +1,99 @@
+{
+  "candidates": 65709,
+  "fire": 9725,
+  "missed_by_prefilter": 28,
+  "ablation_spatial_cv": {
+    "1 каналы": {
+      "f1": 0.9344,
+      "precision": 0.8943,
+      "recall": 0.9782,
+      "threshold": 0.27,
+      "features": 9
+    },
+    "2 + контекст фона": {
+      "f1": 0.9526,
+      "precision": 0.9416,
+      "recall": 0.9639,
+      "threshold": 0.39,
+      "features": 36
+    },
+    "3 + соседи": {
+      "f1": 0.9536,
+      "precision": 0.9378,
+      "recall": 0.97,
+      "threshold": 0.36,
+      "features": 42
+    },
+    "4 + поверхность": {
+      "f1": 0.9599,
+      "precision": 0.9433,
+      "recall": 0.9771,
+      "threshold": 0.33,
+      "features": 47
+    },
+    "5 + погода": {
+      "f1": 0.9597,
+      "precision": 0.9434,
+      "recall": 0.9766,
+      "threshold": 0.35,
+      "features": 50
+    },
+    "6 + сцена": {
+      "f1": 0.9601,
+      "precision": 0.9473,
+      "recall": 0.9733,
+      "threshold": 0.43,
+      "features": 52
+    }
+  },
+  "per_fold_f1": [
+    0.9555,
+    0.9631,
+    0.9568,
+    0.956,
+    0.97
+  ],
+  "temporal_holdout": {
+    "train": "2019-2021",
+    "test": "2023-2024",
+    "at_cv_threshold": 0.9496,
+    "best": {
+      "f1": 0.9516,
+      "precision": 0.9474,
+      "recall": 0.9559,
+      "threshold": 0.36
+    }
+  },
+  "slices": {
+    "день": {
+      "f1": 0.9682,
+      "precision": 0.9575,
+      "recall": 0.9792,
+      "fire": 8506
+    },
+    "ночь": {
+      "f1": 0.9147,
+      "precision": 0.8786,
+      "recall": 0.9538,
+      "fire": 1191
+    },
+    "SNPP": {
+      "f1": 0.9584,
+      "precision": 0.9453,
+      "recall": 0.9718,
+      "fire": 5805
+    },
+    "NOAA20": {
+      "f1": 0.9623,
+      "precision": 0.9517,
+      "recall": 0.9732,
+      "fire": 3527
+    },
+    "NOAA21": {
+      "f1": 0.9655,
+      "precision": 0.9357,
+      "recall": 0.9973,
+      "fire": 365
+    }
+  }
+}
