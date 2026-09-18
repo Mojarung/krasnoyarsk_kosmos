@@ -52,6 +52,7 @@ def compute_af(chip_id: str, paths: dict[str, Path], model: ActiveFireModel) -> 
         prediction.confidence if prediction.confidence is not None else np.ones(codes.shape, np.float32)
     )
     viirs, aux = chip.viirs, chip.aux
+    landcover = np.nan_to_num(aux[0]).astype(np.int16)
 
     hotspots = [
         {
@@ -63,7 +64,7 @@ def compute_af(chip_id: str, paths: dict[str, Path], model: ActiveFireModel) -> 
             "bt_i4": float(viirs[3, r, c]),
             "bt_i5": float(viirs[4, r, c]),
             "confidence": float(confidence[r, c]),
-            "landcover": int(aux[0, r, c]),
+            "landcover": int(landcover[r, c]),
             "is_night": bool(viirs[5, r, c] >= NIGHT_SOLAR_ZENITH_DEG),
             "t2m": _finite(aux[2, r, c]),
             "rh2m": _finite(aux[3, r, c]),
