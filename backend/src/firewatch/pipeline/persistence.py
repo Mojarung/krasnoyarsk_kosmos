@@ -15,13 +15,20 @@ from firewatch.infra.cache import redis
 
 _LOCK_ID = 74001
 DIRTY_KEY = "fw:persistence_dirty"
+# Соседей ищем по индексу ячейки сетки VIIRS 375 м: соединение по равенству вместо перебора всех пар.
+# Координаты центров хранятся округлёнными, но округление на полметра границу ячейки не пересекает.
+GRID_STEP_M = 375.0
 
 _REFRESH_SOURCES = text(
     """
     WITH det AS (
-        SELECT epsg, x_utm, y_utm, acquired_at, geom FROM hotspots WHERE code IN (1, 2)
+        SELECT epsg, x_utm, y_utm, acquired_at, geom,
+               floor(x_utm / :step)::int AS gx, floor(y_utm / :step)::int AS gy
+        FROM hotspots WHERE code IN (1, 2)
     ), cell AS (
-        SELECT DISTINCT ON (epsg, x_utm, y_utm) epsg, x_utm, y_utm, geom FROM det
+        SELECT DISTINCT ON (epsg, gx, gy) epsg, gx, gy, x_utm, y_utm, geom FROM det
+    ), offsets AS (
+        SELECT dx, dy FROM (VALUES (-1), (0), (1)) a(dx) CROSS JOIN (VALUES (-1), (0), (1)) b(dy)
     ), agg AS (
         SELECT c.epsg, c.x_utm, c.y_utm, c.geom,
                count(*) AS n_detections,
@@ -30,9 +37,8 @@ _REFRESH_SOURCES = text(
                min(d.acquired_at) AS first_seen,
                max(d.acquired_at) AS last_seen
         FROM cell c
-        JOIN det d ON d.epsg = c.epsg
-                  AND d.x_utm BETWEEN c.x_utm - :radius AND c.x_utm + :radius
-                  AND d.y_utm BETWEEN c.y_utm - :radius AND c.y_utm + :radius
+        CROSS JOIN offsets o
+        JOIN det d ON d.epsg = c.epsg AND d.gx = c.gx + o.dx AND d.gy = c.gy + o.dy
         GROUP BY c.epsg, c.x_utm, c.y_utm, c.geom
         HAVING count(DISTINCT d.acquired_at::date) >= :min_days
            AND count(DISTINCT date_part('year', d.acquired_at)) >= :min_years
@@ -86,7 +92,7 @@ async def refresh_persistent_sources(session: AsyncSession) -> bool:
     await session.execute(
         _REFRESH_SOURCES,
         {
-            "radius": s.persistent_radius_m,
+            "step": GRID_STEP_M,
             "min_days": s.persistent_min_days,
             "min_years": s.persistent_min_years,
             "min_share": s.persistent_min_pass_share,
