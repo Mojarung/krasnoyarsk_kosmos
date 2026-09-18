@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-from fpdf import FPDF
 from openpyxl import Workbook
 from openpyxl.styles import Font
+
+from firewatch.services import pdf_report
 
 VECTOR_FORMATS = {
     "geojson": ("application/geo+json", "geojson"),
@@ -26,14 +27,6 @@ REPORT_FORMATS = {
     "pdf": ("application/pdf", "pdf"),
 }
 SHAPEFILE_FIELDS = {"fire_event_id": "event_id", "severity_label": "sev_label", "polygon_id": "poly_id"}
-FONT_CANDIDATES = (
-    (
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ),
-    ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"),
-    ("/Library/Fonts/Arial Unicode.ttf", "/Library/Fonts/Arial Unicode.ttf"),
-)
 
 
 class ExportUnavailableError(RuntimeError):
@@ -112,7 +105,10 @@ def export_report(report: dict[str, Any], fmt: str) -> bytes:
         return ("\ufeff" + buffer.getvalue()).encode()
     if fmt == "xlsx":
         return _xlsx(report, rows)
-    return _pdf(report, rows)
+    try:
+        return pdf_report.render(report, rows)
+    except pdf_report.PdfUnavailableError as exc:
+        raise ExportUnavailableError(str(exc)) from exc
 
 
 def _xlsx(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> bytes:
@@ -128,6 +124,21 @@ def _xlsx(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> byte
     sheet.column_dimensions["B"].width = 58
     sheet.column_dimensions["C"].width = 16
 
+    months = book.create_sheet("По месяцам")
+    months.append(("Месяц", "Термоточки пожаров", "Площадь гарей, га", "Контуров"))
+    burn_months = {m["month"]: m for m in report["burn"]["by_month"]}
+    fire_months = {m["month"]: m["n"] for m in report["hotspots"]["by_month"]}
+    for month in sorted(burn_months | fire_months):
+        burn = burn_months.get(month, {"area_ha": 0.0, "contours": 0})
+        months.append((month, fire_months.get(month, 0), burn["area_ha"], burn["contours"]))
+
+    cover = book.create_sheet("По типу территории")
+    cover.append(("Тип территории", "Площадь гарей, га", "Термоточки пожаров"))
+    fire_cover = {r["label"]: r["n"] for r in report["hotspots"]["by_landcover"]}
+    burn_cover = {r["label"]: r["area_ha"] for r in report["burn"]["by_landcover"]}
+    for label in sorted(burn_cover | fire_cover):
+        cover.append((label, burn_cover.get(label, 0.0), fire_cover.get(label, 0)))
+
     days = book.create_sheet("Термоточки по дням")
     days.append(("Дата", "Природные", "Техногенные", "Блики"))
     for day in report["hotspots"]["by_day"]:
@@ -140,49 +151,3 @@ def _xlsx(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> byte
     buffer = io.BytesIO()
     book.save(buffer)
     return buffer.getvalue()
-
-
-def _fonts() -> tuple[str, str]:
-    for regular, bold in FONT_CANDIDATES:
-        if Path(regular).exists() and Path(bold).exists():
-            return regular, bold
-    raise ExportUnavailableError(
-        "Для PDF нужен шрифт с кириллицей (DejaVu Sans или Arial). Доступны JSON, CSV и XLSX."
-    )
-
-
-def _pdf(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> bytes:
-    regular, bold = _fonts()
-    pdf = FPDF(format="A4")
-    pdf.add_font("body", "", regular)
-    pdf.add_font("body", "B", bold)
-    pdf.set_auto_page_break(auto=True, margin=16)
-    pdf.add_page()
-    pdf.set_font("body", "B", 16)
-    pdf.cell(0, 10, "Аналитическая справка по природным пожарам", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("body", "", 9)
-    pdf.set_text_color(90)
-    pdf.cell(0, 6, f"Сформировано {report['generated_at']} UTC", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_text_color(0)
-    pdf.ln(2)
-
-    section = None
-    for name, metric, value, unit in rows:
-        if name != section:
-            section = name
-            pdf.ln(2)
-            pdf.set_font("body", "B", 11)
-            pdf.cell(0, 8, name, new_x="LMARGIN", new_y="NEXT")
-            pdf.set_font("body", "", 10)
-        pdf.cell(125, 6.5, metric, border="B")
-        formatted = f"{value:,.2f}".replace(",", " ") if isinstance(value, float) else str(value)
-        pdf.cell(0, 6.5, f"{formatted} {unit}".strip(), border="B", align="R", new_x="LMARGIN", new_y="NEXT")
-
-    pdf.ln(4)
-    pdf.set_font("body", "B", 11)
-    pdf.cell(0, 8, "Методика", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("body", "", 9)
-    for body in (*report["method"].values(), report["restoration"]["disclaimer"]):
-        pdf.multi_cell(0, 5, body, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(1)
-    return bytes(pdf.output())
