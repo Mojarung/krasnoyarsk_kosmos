@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from firewatch.config import get_settings
 from firewatch.db.session import get_session
 from firewatch.domain.catalog import SEVERITY_COLORS, SEVERITY_LABELS
-from firewatch.infra.cache import cached
+from firewatch.infra.cache import DATA_VERSION_KEY, cached, redis
 from firewatch.pipeline.ingest import STAGE_MESSAGES, STAGES
 from firewatch.services import metrics
 
@@ -91,6 +91,7 @@ async def meta(session: Session) -> dict[str, Any]:
         ],
         "pipeline": [{"stage": s, "label": STAGE_MESSAGES.get(s, "В очереди RabbitMQ")} for s in STAGES],
         "agent": {"llm": get_settings().llm_enabled, "model": get_settings().llm_model or None},
+        "tiles_version": int(await redis.get(DATA_VERSION_KEY) or 0),
     }
 
 

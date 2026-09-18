@@ -1,10 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import math
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-SEVERITY_MIN_ZOOM = 9
+from firewatch.db.session import SessionFactory
+from firewatch.infra.cache import cached
+
+log = logging.getLogger(__name__)
+
+SEVERITY_MIN_ZOOM = 10
 MAX_ZOOM = 16
+TILE_EXTENT = 4096
+# Генерализация по зуму: объект меньше экранного пикселя не виден, но стоит времени и трафика.
+# Пороги площади, га: контуры гарей и полигоны степеней.
+MIN_CONTOUR_HA = {5: 100.0, 6: 50.0, 7: 20.0, 8: 5.0, 9: 1.0}
+MIN_SEVERITY_HA = {10: 1.0, 11: 0.2}
 
 _EPOCH_DAYS = "({col} - DATE '1970-01-01')"
 
@@ -15,8 +29,8 @@ _CONTOURS = text(
     ), contours AS (
         SELECT b.id, b.scene_id, b.area_ha, b.sev1_ha, b.sev2_ha, b.sev3_ha,
                {_EPOCH_DAYS.format(col="b.date_pre")} AS t0, {_EPOCH_DAYS.format(col="b.date_post")} AS t1,
-               ST_AsMVTGeom(ST_Transform(b.geom, 3857), bounds.merc, 4096, 64, true) AS geom
-        FROM burn_areas b, bounds WHERE b.geom && bounds.wgs
+               ST_AsMVTGeom(ST_Transform(ST_Simplify(b.geom, :tolerance), 3857), bounds.merc, 4096, 64, true) AS geom
+        FROM burn_areas b, bounds WHERE b.geom && bounds.wgs AND b.area_ha >= :min_contour_ha
     ), centers AS (
         SELECT b.id, b.scene_id, b.area_ha,
                {_EPOCH_DAYS.format(col="b.date_pre")} AS t0, {_EPOCH_DAYS.format(col="b.date_post")} AS t1,
@@ -33,11 +47,13 @@ _SEVERITY = text(
     WITH bounds AS (
         SELECT ST_TileEnvelope(:z, :x, :y) AS merc, ST_Transform(ST_TileEnvelope(:z, :x, :y), 4326) AS wgs
     ), tile_rows AS (
-        SELECT s.id, s.severity, s.scene_id, s.burn_area_id AS contour_id, s.area_ha,
+        SELECT s.id, s.severity, s.scene_id, s.burn_area_id AS contour_id, s.area_ha, b.area_ha AS contour_ha,
                {_EPOCH_DAYS.format(col="sc.date_pre")} AS t0, {_EPOCH_DAYS.format(col="s.date_post")} AS t1,
                ST_AsMVTGeom(ST_Transform(s.geom, 3857), bounds.merc, 4096, 64, true) AS geom
-        FROM severity_polygons s JOIN scenes sc ON sc.id = s.scene_id, bounds
-        WHERE s.geom && bounds.wgs
+        FROM severity_polygons s
+        JOIN scenes sc ON sc.id = s.scene_id
+        JOIN burn_areas b ON b.id = s.burn_area_id, bounds
+        WHERE s.geom && bounds.wgs AND s.area_ha >= :min_severity_ha
     )
     SELECT coalesce((SELECT ST_AsMVT(tile_rows, 'severity', 4096, 'geom', 'id') FROM tile_rows WHERE geom IS NOT NULL), '')
     """
@@ -48,11 +64,59 @@ def _min_center_ha(z: int) -> float:
     return 200.0 if z <= 5 else 50.0 if z <= 7 else 0.0
 
 
+def _tolerance_deg(z: int) -> float:
+    """Допуск упрощения: один шаг сетки тайла в градусах. С 12-го зума контур идёт без упрощения."""
+    return 0.0 if z >= 12 else 360.0 / (2**z) / TILE_EXTENT
+
+
 async def render_tile(session: AsyncSession, z: int, x: int, y: int) -> bytes:
     params = {"z": z, "x": x, "y": y}
-    tile = bytes(
-        (await session.execute(_CONTOURS, params | {"min_center_ha": _min_center_ha(z)})).scalar_one()
-    )
+    contour_params = params | {
+        "min_center_ha": _min_center_ha(z),
+        "min_contour_ha": MIN_CONTOUR_HA.get(max(z, min(MIN_CONTOUR_HA)), 0.0),
+        "tolerance": _tolerance_deg(z),
+    }
+    tile = bytes((await session.execute(_CONTOURS, contour_params)).scalar_one())
     if z >= SEVERITY_MIN_ZOOM:
-        tile += bytes((await session.execute(_SEVERITY, params)).scalar_one())
+        severity_params = params | {"min_severity_ha": MIN_SEVERITY_HA.get(z, 0.0)}
+        tile += bytes((await session.execute(_SEVERITY, severity_params)).scalar_one())
     return tile
+
+
+WARM_ZOOMS = (10, 11)
+WARM_CONCURRENCY = 4
+
+
+def tile_of(lon: float, lat: float, z: int) -> tuple[int, int]:
+    n = 2**z
+    x = int((lon + 180.0) / 360.0 * n)
+    y = int((1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n)
+    return min(max(x, 0), n - 1), min(max(y, 0), n - 1)
+
+
+async def cached_tile(session: AsyncSession, z: int, x: int, y: int) -> bytes:
+    return await cached("tile", [z, x, y], lambda: render_tile(session, z, x, y), binary=True)
+
+
+async def warm_tiles(points: list[tuple[float, float]]) -> None:
+    """Заранее кладёт в кеш тайлы вокруг точек, к которым пользователь вероятно перелетит."""
+    wanted = {
+        (z, x + dx, y + dy)
+        for lon, lat in points
+        for z in WARM_ZOOMS
+        for x, y in [tile_of(lon, lat, z)]
+        for dx in (-1, 0, 1)
+        for dy in (-1, 0, 1)
+    }
+    gate = asyncio.Semaphore(WARM_CONCURRENCY)
+
+    async def warm(z: int, x: int, y: int) -> None:
+        async with gate, SessionFactory() as session:
+            await cached_tile(session, z, x, y)
+
+    results = await asyncio.gather(*(warm(*tile) for tile in wanted), return_exceptions=True)
+    failed = [r for r in results if isinstance(r, Exception)]
+    if failed:
+        log.warning(
+            "Прогрев тайлов: %s из %s не удалось, первая ошибка: %r", len(failed), len(wanted), failed[0]
+        )

@@ -20,12 +20,21 @@ from firewatch.services.export import (
     export_vector,
 )
 from firewatch.services.report import build_report
+from firewatch.services.tiles import warm_tiles
 
 router = APIRouter(prefix="/api/v1", tags=["Анализ территории"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 Kinds = Annotated[
     list[HotspotKind] | None, Query(description="Фильтр по типу термоточки. По умолчанию все типы")
 ]
+
+_background: set[asyncio.Task[None]] = set()
+
+
+def _keep(task: asyncio.Task[None]) -> None:
+    """Держит ссылку на фоновую задачу, иначе сборщик мусора может снять её до завершения."""
+    _background.add(task)
+    task.add_done_callback(_background.discard)
 
 
 def _download(body: bytes, media_type: str, filename: str) -> Response:
@@ -81,6 +90,7 @@ async def _burns(session: AsyncSession, query: q.SpatioTemporalQuery, layer: str
 
 async def _report(session: AsyncSession, query: q.SpatioTemporalQuery, fmt: str) -> Any:
     report = await cached("report", query.cache_key, lambda: build_report(session, query))
+    _keep(asyncio.create_task(warm_tiles([(b["lon"], b["lat"]) for b in report["burn"]["largest"]])))
     if fmt == "json":
         return report
     try:

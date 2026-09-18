@@ -8,13 +8,14 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.db.session import get_session
-from firewatch.infra.cache import cached, subscribe_events
-from firewatch.services.tiles import MAX_ZOOM, render_tile
+from firewatch.infra.cache import subscribe_events
+from firewatch.services.tiles import MAX_ZOOM, cached_tile
 
 router = APIRouter(prefix="/api/v1", tags=["Карта и события"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 
-TILE_CACHE = "public, max-age=60"
+# Адрес тайла содержит версию данных, поэтому браузеру можно кешировать надолго.
+TILE_CACHE = "public, max-age=86400"
 
 
 @router.get(
@@ -37,7 +38,7 @@ async def burn_tile(
 ) -> Response:
     if x >= 2**z or y >= 2**z:
         raise HTTPException(status_code=404, detail="Тайл вне сетки")
-    tile = await cached("tile", [z, x, y], lambda: render_tile(session, z, x, y), binary=True)
+    tile = await cached_tile(session, z, x, y)
     return Response(
         tile, media_type="application/vnd.mapbox-vector-tile", headers={"Cache-Control": TILE_CACHE}
     )
