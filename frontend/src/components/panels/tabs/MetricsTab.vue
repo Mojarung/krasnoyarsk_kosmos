@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Timer } from '@lucide/vue'
 import { computed } from 'vue'
-import MiniBars from '@/components/common/MiniBars.vue'
+import BarList, { type BarListItem } from '@/components/common/BarList.vue'
+import MonthBars from '@/components/common/MonthBars.vue'
 import RingGauge from '@/components/common/RingGauge.vue'
 import StatRows, { type StatRow } from '@/components/common/StatRows.vue'
-import { fmt } from '@/lib/format'
+import { denseMonths, fmt, monthRange } from '@/lib/format'
 import type { Report } from '@/lib/types'
 import { useLiveStore } from '@/stores/live'
 
@@ -12,10 +13,17 @@ const props = defineProps<{ report: Report }>()
 const live = useLiveStore()
 
 const SCORE_HINT = 'Score = 0.35 F1_af + 0.35 IoU_burn + 0.30 mIoU_sev, микро-усреднение по пикселям, как в постановке кейса'
+const FIRE_HINT = 'Число природных термоточек VIIRS 375 м по месяцу пролёта, техногенные и блики исключены. Наведите курсор или используйте стрелки, чтобы пройти по месяцам'
+const BURN_HINT = 'Площадь гарей, обрезанная по контуру запроса, по месяцу послепожарного снимка. Месяцы без съёмки показаны нулём'
 
 const quality = computed(() => props.report.quality)
-const burnMonths = computed(() => props.report.burn.by_month.map((m) => ({ label: m.month, value: Math.round(m.area_ha) })))
-const fireMonths = computed(() => props.report.hotspots.by_month.map((m) => ({ label: m.month, value: m.n })))
+/** Общая ось месяцев для обоих графиков: пропуски заполняем нулями, иначе столбики не сопоставимы по времени. */
+const months = computed(() => monthRange(props.report.query.date_from, props.report.query.date_to))
+const fireMonths = computed(() => denseMonths(months.value, props.report.hotspots.by_month, (m) => m.month, (m) => m.n))
+const burnMonths = computed(() => denseMonths(months.value, props.report.burn.by_month, (m) => m.month, (m) => m.area_ha))
+const fireLandcover = computed<BarListItem[]>(() => props.report.hotspots.by_landcover.map((l) => ({ key: l.landcover, label: l.label, value: l.n })))
+const burnLandcover = computed<BarListItem[]>(() => props.report.burn.by_landcover.map((l) => ({ key: l.landcover, label: l.label, value: Math.round(l.area_ha) })))
+const satellites = computed<BarListItem[]>(() => Object.entries(props.report.hotspots.by_satellite).map(([name, n]) => ({ key: name, label: name.toUpperCase(), value: n })))
 const pipeline = computed(() => Object.entries(live.metrics?.by_kind ?? {}))
 
 const hotspotRows = computed<StatRow[]>(() => {
@@ -70,16 +78,14 @@ const burnRows = computed<StatRow[]>(() => {
     <StatRows title="Погода в момент детекции" :rows="weatherRows" />
     <StatRows title="Гари" :rows="burnRows" />
 
-    <div class="grid grid-cols-2 gap-2">
-      <div class="rounded-[20px] bg-surface-2 p-3">
-        <div class="mb-2 text-[11px] text-muted-foreground">Термоточки по месяцам</div>
-        <MiniBars :items="fireMonths" color="var(--fire)" :height="44" />
-      </div>
-      <div class="rounded-[20px] bg-surface-2 p-3">
-        <div class="mb-2 text-[11px] text-muted-foreground">Гари по месяцам, га</div>
-        <MiniBars :items="burnMonths" color="var(--sev-2)" :height="44" />
-      </div>
+    <div class="space-y-2">
+      <MonthBars title="Термоточки пожаров по месяцам" unit="точек" color="var(--fire)" :items="fireMonths" :hint="FIRE_HINT" />
+      <MonthBars title="Площадь гарей по месяцам" unit="га" color="var(--sev-2)" :items="burnMonths" :hint="BURN_HINT" :format="fmt.ha" />
     </div>
+
+    <BarList title="Термоточки по типу территории" unit="точек" color="var(--fire)" :items="fireLandcover" />
+    <BarList title="Гари по типу территории, га" unit="га" color="var(--sev-2)" :items="burnLandcover" :format="fmt.ha" />
+    <BarList title="Термоточки по спутникам" unit="точек" color="var(--glint)" :items="satellites" :limit="4" />
 
     <div v-if="pipeline.length" v-tip="'Среднее время обработки одной сцены конвейером, включая инференс, векторизацию и запись в PostGIS'" class="flex items-center gap-3 rounded-full bg-surface-2 px-4 py-2.5 text-xs text-muted-foreground">
       <Timer class="size-3.5 shrink-0 text-primary" />

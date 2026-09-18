@@ -5,6 +5,8 @@ const compact = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFra
 const shortDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
 const dayMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
 const dateTime = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
+const monthLong = new Intl.DateTimeFormat('ru-RU', { month: 'long', timeZone: 'UTC' })
+const monthShort = new Intl.DateTimeFormat('ru-RU', { month: 'short', timeZone: 'UTC' })
 
 export const DAY_MS = 86_400_000
 
@@ -16,10 +18,35 @@ export const fmt = {
   compact: (value: number) => compact.format(value),
   score: (value: number | null | undefined) => (value == null ? '-' : value.toFixed(3)),
   date: (iso: string) => shortDate.format(new Date(iso)),
+  month: (key: string) => `${monthLong.format(monthStart(key))} ${key.slice(0, 4)}`,
+  monthShort: (key: string) => monthShort.format(monthStart(key)).replace('.', ''),
   dayMonth: (iso: string | number) => dayMonth.format(new Date(iso)),
   dateTimeUtc: (iso: string) => `${dateTime.format(new Date(iso))} UTC`,
   money: (value: number, currency: string) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0, notation: value >= 1e7 ? 'compact' : 'standard' }).format(value),
+}
+
+/** Начало месяца `YYYY-MM` в UTC. */
+export function monthStart(key: string): number {
+  return Date.parse(`${key.slice(0, 7)}-01T00:00:00Z`)
+}
+
+/** Непрерывный ряд ключей `YYYY-MM` от месяца `from` до месяца `to` включительно. */
+export function monthRange(from: string, to: string): string[] {
+  const cursor = new Date(monthStart(from))
+  const last = monthStart(to)
+  const keys: string[] = []
+  while (cursor.getTime() <= last && keys.length < 600) {
+    keys.push(toIsoDate(cursor.getTime()).slice(0, 7))
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1)
+  }
+  return keys
+}
+
+/** Помесячный ряд без пропусков: месяцы без данных получают ноль. */
+export function denseMonths<T>(range: string[], rows: T[], key: (row: T) => string, value: (row: T) => number) {
+  const index = new Map(rows.map((row) => [key(row).slice(0, 7), value(row)]))
+  return range.map((month) => ({ month, value: index.get(month) ?? 0 }))
 }
 
 export function toIsoDate(ms: number): string {
