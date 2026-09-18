@@ -53,14 +53,14 @@ async function removeZone(id: number) {
     <div class="flex min-w-0 flex-1 justify-center"><AgentBar class="pointer-events-auto" /></div>
 
     <div class="panel pointer-events-auto flex h-12 shrink-0 items-center gap-0.5 !rounded-full px-1.5">
-      <Button v-tip="'Конвейер: загрузить свой чип и смотреть ход обработки вживую'" variant="ghost" size="sm" class="gap-2" @click="ui.pipelineOpen = true">
+      <Button v-tip="'Конвейер: загрузить свою сцену, следить за обработкой, проверить качество моделей'" variant="ghost" size="sm" class="gap-2" @click="ui.pipelineOpen = true">
         <Workflow :class="{ 'animate-pulse text-primary': live.pending > 0 }" />
         <span class="hidden tabular-nums md:inline">{{ live.pending > 0 ? `в работе ${live.pending}` : 'Конвейер' }}</span>
       </Button>
 
       <Popover @update:open="(open: boolean) => open && live.markRead()">
         <PopoverTrigger as-child>
-          <Button v-tip="'Зоны наблюдения и алерты о новых термоточках'" variant="ghost" size="icon" class="relative" aria-label="Зоны наблюдения и алерты">
+          <Button v-tip="'Зоны наблюдения и оповещения о новых термоточках'" variant="ghost" size="icon" class="relative" aria-label="Зоны наблюдения и алерты">
             <Bell />
             <span v-if="live.unread" class="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-fire px-1 text-[10px] font-semibold leading-4 text-white">{{ live.unread }}</span>
           </Button>
@@ -69,7 +69,7 @@ async function removeZone(id: number) {
           <div class="label-caps mb-2">Следить за текущей территорией</div>
           <form class="flex gap-1.5" @submit.prevent="watchZone">
             <input v-model="zoneName" :placeholder="query.regionName" aria-label="Название зоны" class="h-8 min-w-0 flex-1 rounded-full bg-surface-3 px-3.5 text-[13px] outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/50" />
-            <Button v-tip="'Новая термоточка пожара в этой зоне придёт алертом сюда. Webhook задаётся через POST /api/v1/zones'" type="submit" size="sm" variant="tonal" :disabled="saving || !query.geometry"><BellPlus />Следить</Button>
+            <Button v-tip="'Когда в этой зоне появится новая термоточка, оповещение придёт сюда. Webhook настраивается через POST /api/v1/zones'" type="submit" size="sm" variant="tonal" :disabled="saving || !query.geometry"><BellPlus />Следить</Button>
           </form>
 
           <div v-if="live.zones.length" class="mt-3 space-y-1">

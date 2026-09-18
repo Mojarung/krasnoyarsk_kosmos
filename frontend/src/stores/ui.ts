@@ -4,7 +4,7 @@ import { computed, ref, shallowRef, watchEffect } from 'vue'
 
 export type Basemap = 'dark' | 'satellite'
 export type DrawMode = 'idle' | 'polygon' | 'rectangle'
-export type InsightTab = 'report' | 'metrics' | 'restoration' | 'technogenic'
+export type InsightView = 'overview' | 'dynamics' | 'restoration' | 'alarms'
 export type DayNight = 'all' | 'day' | 'night'
 
 export interface DisplayFilters {
@@ -24,7 +24,7 @@ export const useUiStore = defineStore('ui', () => {
   const showSeverity = ref(true)
   const showSources = ref(false)
   const drawMode = ref<DrawMode>('idle')
-  const insightTab = ref<InsightTab>('report')
+  const insightTab = ref<InsightView>('overview')
   const insightOpen = ref(true)
   const queryOpen = ref(true)
   const pipelineOpen = ref(false)

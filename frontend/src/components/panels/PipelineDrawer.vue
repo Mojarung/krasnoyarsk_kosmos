@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { FileUp, RefreshCw, UploadCloud } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import BubbleTabs from '@/components/common/BubbleTabs.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -11,11 +11,18 @@ import { useUiStore } from '@/stores/ui'
 import JobRow from './JobRow.vue'
 
 type Kind = 'af' | 'bs'
+type Section = 'run' | 'quality'
+
+const QualityTab = defineAsyncComponent(() => import('./tabs/QualityTab.vue'))
 
 const ui = useUiStore()
 const live = useLiveStore()
 const query = useQueryStore()
 
+const SECTIONS = [
+  { value: 'run' as const, label: 'Обработка сцен', hint: 'Загрузить свою сцену и посмотреть ход обработки' },
+  { value: 'quality' as const, label: 'Качество моделей', hint: 'Сравнение с эталонной разметкой на сценах текущего запроса' },
+]
 const KINDS = [
   { value: 'bs' as const, label: 'Гарь (Sentinel)' },
   { value: 'af' as const, label: 'Горение (VIIRS)' },
@@ -35,6 +42,7 @@ const ROLE_LABELS: Record<string, string> = {
   s1_pre: 'Sentinel-1 до', s1_post: 'Sentinel-1 после', mask: 'Эталон (необязательно)',
 }
 
+const section = ref<Section>('run')
 const kind = ref<Kind>('bs')
 const files = ref<Record<string, File>>({})
 const acquiredAt = ref('')
@@ -106,13 +114,20 @@ onMounted(() => live.loadJobs())
 
 <template>
   <Dialog v-model:open="ui.pipelineOpen">
-    <DialogContent class="panel max-h-[88dvh] w-[min(560px,94vw)] max-w-none gap-0 overflow-hidden !rounded-[32px] border-border p-0">
-      <DialogHeader class="px-6 pt-6">
+    <DialogContent class="panel flex max-h-[88dvh] w-[min(560px,94vw)] max-w-none flex-col gap-0 overflow-hidden !rounded-[32px] border-border p-0">
+      <DialogHeader class="shrink-0 px-6 pt-6">
         <DialogTitle class="text-lg">Конвейер обработки</DialogTitle>
         <DialogDescription class="text-[13px]">Файлы уходят в S3, задание в RabbitMQ, воркер пишет результат в PostGIS. Прогресс приходит по SSE.</DialogDescription>
       </DialogHeader>
 
-      <div class="thin-scroll space-y-4 overflow-y-auto px-6 pb-6 pt-4">
+      <div class="shrink-0 px-6 pt-4"><BubbleTabs v-model="section" :options="SECTIONS" size="sm" stretch /></div>
+
+      <div v-if="section === 'quality'" class="thin-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4">
+        <QualityTab v-if="query.report" :report="query.report" />
+        <p v-else class="text-[13px] text-muted-foreground">Справка по запросу ещё считается.</p>
+      </div>
+
+      <div v-else class="thin-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4">
         <div class="flex items-center justify-between gap-3">
           <BubbleTabs v-model="kind" :options="KINDS" size="sm" />
           <Button v-tip="'Берёт случайную готовую сцену и проводит её через весь конвейер заново. Удобно показать живой ход обработки без файлов под рукой'" size="sm" variant="secondary" @click="replayRandom"><RefreshCw />Прогнать готовую сцену</Button>
@@ -126,8 +141,8 @@ onMounted(() => live.loadJobs())
           @drop.prevent="onDrop"
         >
           <UploadCloud class="size-7 text-primary" />
-          <span class="text-sm font-medium">Перетащите GeoTIFF-файлы чипа</span>
-          <span class="text-xs text-muted-foreground">Роли определяются по именам: VIIRS, Sentinel-2_pre, AUX, MASK</span>
+          <span class="text-sm font-medium">Перетащите GeoTIFF-файлы сцены</span>
+          <span class="text-xs text-muted-foreground">Что это за файл, поймём по имени: VIIRS, Sentinel-2_pre, AUX, MASK</span>
           <input type="file" multiple accept=".tif,.tiff" class="sr-only" @change="assign(($event.target as HTMLInputElement).files)" />
         </label>
 

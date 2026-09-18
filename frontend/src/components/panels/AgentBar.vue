@@ -6,7 +6,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import MorphLoader from '@/components/common/MorphLoader.vue'
 import { type AgentAction, type AgentCardData, streamSse } from '@/lib/api'
 import { useQueryStore } from '@/stores/query'
-import { useUiStore } from '@/stores/ui'
+import { type InsightView, useUiStore } from '@/stores/ui'
 import AgentCard from './AgentCard.vue'
 
 const query = useQueryStore()
@@ -14,6 +14,7 @@ const ui = useUiStore()
 
 const SUGGESTIONS = ['Самый крупный пожар в Ростовской области за всё время', 'Гари в Калмыкии за июнь 2019', 'Сколько ложных срабатываний отсеяно в Волгоградской области', 'Что нужно восстанавливать в Астраханской области после 2020 года']
 const FOCUS_DELAY_MS = 2600
+const TAB_VIEWS: Record<string, InsightView> = { report: 'overview', metrics: 'dynamics', restoration: 'restoration', technogenic: 'alarms' }
 
 const root = ref<HTMLElement | null>(null)
 const answerBox = ref<HTMLElement | null>(null)
@@ -68,7 +69,7 @@ function applyAction(action: AgentAction) {
     query.apply({ geometry: action.geometry, regionId: action.region_id, from: action.date_from, to: action.date_to })
   } else if (action.type === 'open_tab') {
     ui.insightOpen = true
-    ui.insightTab = action.tab
+    ui.insightTab = TAB_VIEWS[action.tab] ?? 'overview'
   } else {
     window.setTimeout(() => (ui.flyTarget = { lon: action.lon, lat: action.lat, zoom: action.zoom }), FOCUS_DELAY_MS)
   }

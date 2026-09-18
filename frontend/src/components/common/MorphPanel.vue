@@ -6,20 +6,20 @@ import { cn } from '@/lib/utils'
 
 gsap.registerPlugin(Flip)
 
-const props = defineProps<{ open: boolean; class?: string; pillClass?: string }>()
+const props = defineProps<{ open: boolean; class?: string; pillClass?: string; layoutKey?: string }>()
 const shell = ref<HTMLElement | null>(null)
 const body = ref<HTMLElement | null>(null)
 const expanded = ref(props.open)
 
 watch(
-  () => props.open,
-  async (open) => {
+  () => [props.open, props.layoutKey] as const,
+  async ([open], [wasOpen]) => {
     if (!shell.value) return
     const state = Flip.getState(shell.value)
     expanded.value = open
     await nextTick()
     Flip.from(state, { duration: 0.62, ease: 'expo.out', scale: false, simple: true })
-    if (body.value) gsap.from(body.value, { opacity: 0, y: open ? 10 : 0, duration: 0.4, delay: 0.12, ease: 'power2.out', clearProps: 'all' })
+    if (open !== wasOpen && body.value) gsap.from(body.value, { opacity: 0, y: open ? 10 : 0, duration: 0.4, delay: 0.12, ease: 'power2.out', clearProps: 'all' })
   },
 )
 </script>

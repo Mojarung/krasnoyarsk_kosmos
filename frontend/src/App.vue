@@ -67,7 +67,7 @@ onMounted(boot)
       <TopBar data-enter />
 
       <div class="flex min-h-0 flex-1 items-start justify-between gap-3">
-        <QueryPanel data-enter class="pointer-events-auto max-lg:hidden" />
+        <QueryPanel data-enter class="pointer-events-auto shrink-0 max-lg:hidden" />
         <InsightPanel data-enter class="pointer-events-auto max-lg:hidden" />
       </div>
 
