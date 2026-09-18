@@ -157,7 +157,11 @@ def score_from_scenes(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
         "iou_severity": [_r4(v) for v in iou_sev] if iou_sev else None,
         "miou_sev": _r4(miou_sev),
         "score": _r4(sum(SCORE_WEIGHTS[k] * v for k, v in parts.items())) if complete else None,
-        "note": "Считается по сценам запроса, для которых загружена эталонная маска. Формула и усреднение как в постановке кейса.",
+        "note": (
+            "Считается по сценам запроса с эталонной маской, формула и усреднение как в постановке кейса. "
+            "Модель активного горения обучена на train, поэтому на train-сценах F1 завышен: "
+            "честная оценка 0,960 получена кросс-валидацией (research/af/REPORT.md)."
+        ),
     }
 
 
