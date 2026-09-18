@@ -9,6 +9,7 @@ import TimelineBar from '@/components/panels/TimelineBar.vue'
 import TopBar from '@/components/panels/TopBar.vue'
 import { useLiveStore } from '@/stores/live'
 import { useQueryStore } from '@/stores/query'
+import { APP_NAME } from '@/lib/brand'
 import { useUiStore } from '@/stores/ui'
 
 const MapView = defineAsyncComponent(() => import('@/components/map/MapView.vue'))
@@ -94,7 +95,7 @@ onMounted(boot)
       <div class="flex flex-col items-center gap-5 text-center">
         <MorphLoader :size="84" />
         <div>
-          <div class="display-number text-3xl">Зарево</div>
+          <div class="display-number text-3xl">{{ APP_NAME }}</div>
           <p class="mt-2 max-w-72 text-sm text-muted-foreground">{{ bootError ?? 'Поднимаем карту, термоточки и контуры гарей' }}</p>
         </div>
         <button v-if="bootError" type="button" class="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground" @click="boot">Повторить</button>

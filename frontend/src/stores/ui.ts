@@ -1,10 +1,21 @@
 import { useStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { ref, shallowRef, watchEffect } from 'vue'
+import { computed, ref, shallowRef, watchEffect } from 'vue'
 
 export type Basemap = 'dark' | 'satellite'
 export type DrawMode = 'idle' | 'polygon' | 'rectangle'
 export type InsightTab = 'report' | 'metrics' | 'restoration' | 'technogenic'
+export type DayNight = 'all' | 'day' | 'night'
+
+export interface DisplayFilters {
+  severities: number[]
+  minContourHa: number
+  dayNight: DayNight
+  minConfidence: number
+  satellites: string[]
+}
+
+export const DEFAULT_FILTERS: DisplayFilters = { severities: [1, 2, 3], minContourHa: 0, dayNight: 'all', minConfidence: 0, satellites: [] }
 
 export const useUiStore = defineStore('ui', () => {
   const theme = useStorage<'dark' | 'light'>('fw-theme', 'dark')
@@ -21,6 +32,19 @@ export const useUiStore = defineStore('ui', () => {
   const playing = ref(false)
   const playhead = ref<number | null>(null)
   const flyTarget = shallowRef<{ lon: number; lat: number; zoom?: number } | null>(null)
+  const filters = ref<DisplayFilters>({ ...DEFAULT_FILTERS })
+  const activeFilterCount = computed(
+    () =>
+      Number(filters.value.severities.length < 3) +
+      Number(filters.value.minContourHa > 0) +
+      Number(filters.value.dayNight !== 'all') +
+      Number(filters.value.minConfidence > 0) +
+      Number(filters.value.satellites.length > 0),
+  )
+
+  function resetFilters() {
+    filters.value = { ...DEFAULT_FILTERS, severities: [...DEFAULT_FILTERS.severities] }
+  }
 
   watchEffect(() => document.documentElement.classList.toggle('dark', theme.value === 'dark'))
 
@@ -30,6 +54,6 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     theme, basemap, showFiltered, showSeverity, showSources, drawMode, insightTab, insightOpen, queryOpen,
-    pipelineOpen, compareSceneId, playing, playhead, flyTarget, toggleTheme,
+    pipelineOpen, compareSceneId, playing, playhead, flyTarget, filters, activeFilterCount, toggleTheme, resetFilters,
   }
 })

@@ -150,6 +150,7 @@ export interface Meta {
   severity: { severity: number; label: string; color: string }[]
   pipeline: { stage: string; label: string }[]
   agent: { llm: boolean; model: string | null }
+  tiles_version: number
 }
 
 export interface TimelineDay {

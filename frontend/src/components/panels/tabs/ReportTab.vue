@@ -9,7 +9,7 @@ import SeverityBar from '@/components/common/SeverityBar.vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { curlFor, download } from '@/lib/api'
-import { fmt } from '@/lib/format'
+import { fmt, plural } from '@/lib/format'
 import type { Report } from '@/lib/types'
 import { useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
@@ -64,17 +64,17 @@ async function save(path: string, key: string) {
         <AnimatedNumber :value="props.report.burn.total_ha" :format="fmt.ha" class="display-number text-[42px]" />
         <span class="text-lg opacity-80">га</span>
       </div>
-      <div class="mt-1.5 text-xs opacity-75">{{ fmt.int(props.report.burn.contours) }} контуров в {{ props.report.burn.scenes }} сценах</div>
+      <div class="mt-1.5 text-xs opacity-75">{{ plural(props.report.burn.contours, ['контур', 'контура', 'контуров']) }} в {{ plural(props.report.burn.scenes, ['сцене', 'сценах', 'сценах']) }}</div>
     </div>
 
     <SeverityBar :items="props.report.burn.by_severity" />
 
     <div class="grid grid-cols-2 gap-2">
-      <MetricTile label="Очагов пожаров" :value="fmt.int(props.report.hotspots.fire_clusters)" :sub="`${fmt.int(props.report.hotspots.fire)} термоточек`" :icon="Flame" color="var(--fire)" :hint="props.report.method.hotspots" />
+      <MetricTile label="Очагов пожаров" :value="fmt.int(props.report.hotspots.fire_clusters)" :sub="plural(props.report.hotspots.fire, ['термоточка', 'термоточки', 'термоточек'])" :icon="Flame" color="var(--fire)" :hint="props.report.method.hotspots" />
       <MetricTile
         label="Отсеяно срабатываний"
         :value="fmt.int(props.report.hotspots.technogenic + props.report.hotspots.glint)"
-        :sub="`${fmt.int(props.report.hotspots.false_dispatches_prevented)} ложных выездов`"
+        :sub="plural(props.report.hotspots.false_dispatches_prevented, ['ложный выезд', 'ложных выезда', 'ложных выездов'])"
         :icon="ShieldCheck"
         color="var(--technogenic)"
         :hint="FILTER_HINT"
@@ -89,7 +89,7 @@ async function save(path: string, key: string) {
           :key="item.contour_id"
           v-tip="'Перелететь к гари. Клик по контуру на карте откроет сравнение до и после'"
           type="button"
-          class="flex w-full items-center justify-between rounded-full bg-surface-2 px-3.5 py-2 text-[13px] transition-[border-radius,background-color] duration-300 ease-spring hover:rounded-2xl hover:bg-surface-3"
+          class="flex w-full items-center justify-between rounded-full bg-surface-2 px-3.5 py-2 text-[13px] transition-colors duration-200 hover:bg-surface-3 active:scale-[0.99]"
           @click="ui.flyTarget = { lon: item.lon, lat: item.lat, zoom: 11 }"
         >
           <span class="flex items-center gap-2"><Crosshair class="size-3.5 text-primary" />{{ fmt.date(item.date_post) }}</span>

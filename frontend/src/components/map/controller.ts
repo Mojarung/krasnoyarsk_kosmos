@@ -1,8 +1,9 @@
 import { gsap } from 'gsap'
-import { type FilterSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
+import { type ExpressionSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection } from 'geojson'
 import type { AreaGeometry, HotspotCollection, HotspotProps, SceneSummary, Zone } from '@/lib/types'
+import { DEFAULT_FILTERS, type DisplayFilters } from '@/stores/ui'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
 import { focusMask, LAYER, loadBaseStyle, type MapTheme, OVERLAY_SOURCES, overlayLayers, SRC } from './style'
@@ -49,6 +50,7 @@ export class FireMap {
   private draw: { stop: () => void } | null = null
   private window: TimeWindow = { fromDay: 0, toDay: 1e6, playheadTs: null }
   private showFiltered = true
+  private display: DisplayFilters = DEFAULT_FILTERS
   private satellite = false
   ready: Promise<void>
 
@@ -83,7 +85,7 @@ export class FireMap {
     for (const id of [SRC.aoi, SRC.regions, SRC.focus, SRC.query, SRC.hotspots, SRC.sources, SRC.zones]) {
       map.addSource(id, { type: 'geojson', data: EMPTY })
     }
-    map.addSource(SRC.burns, { type: 'vector', tiles: [this.tileUrl(0)], minzoom: 3, maxzoom: 13 })
+    map.addSource(SRC.burns, { type: 'vector', tiles: [this.tileUrl(0)], minzoom: 3, maxzoom: 11 })
     for (const layer of overlayLayers()) map.addLayer(layer)
 
     const pulse = { radius: 4, opacity: 0.9 }
@@ -108,7 +110,7 @@ export class FireMap {
     })
   }
 
-  private tileUrl(version: number): string {
+  private tileUrl(version: number | string): string {
     return `${window.location.origin}/api/v1/tiles/burns/{z}/{x}/{y}.mvt?v=${version}`
   }
 
@@ -226,28 +228,42 @@ export class FireMap {
     this.applyTime()
   }
 
+  setDisplayFilters(next: DisplayFilters) {
+    this.display = next
+    this.applyTime()
+  }
+
   private applyTime() {
     const { fromDay, toDay, playheadTs } = this.window
+    const { severities, minContourHa, dayNight, minConfidence, satellites } = this.display
     const lastDay = playheadTs == null ? toDay : Math.min(toDay, Math.floor(playheadTs / 86_400))
-    const burnFilter: FilterSpecification = ['all', ['<=', ['get', playheadTs == null ? 't0' : 't1'], lastDay], ['>=', ['get', 't1'], fromDay]]
-    for (const id of [LAYER.severity, LAYER.burnFill, LAYER.burnLine, LAYER.burnCenters]) this.map.setFilter(id, burnFilter)
+    const inPeriod: ExpressionSpecification = ['all', ['<=', ['get', playheadTs == null ? 't0' : 't1'], lastDay], ['>=', ['get', 't1'], fromDay]]
 
-    const until: FilterSpecification = playheadTs == null ? ['literal', true] : ['<=', ['get', 'ts'], playheadTs]
-    const isFire: FilterSpecification = ['==', ['get', 'kind'], 'fire']
-    this.map.setFilter(LAYER.fireCore, ['all', isFire, until])
-    this.map.setFilter(LAYER.fireGlow, ['all', isFire, until])
-    this.map.setFilter(LAYER.filtered, this.showFiltered ? ['all', ['!=', ['get', 'kind'], 'fire'], until] : ['literal', false])
+    const hasSeverity: ExpressionSpecification = ['any', ...severities.map((k): ExpressionSpecification => ['>', ['get', `sev${k}_ha`], 0])]
+    const contourFilter: ExpressionSpecification = ['all', inPeriod, ['>=', ['get', 'area_ha'], minContourHa], ...(severities.length < 3 ? [hasSeverity] : [])]
+    for (const id of [LAYER.burnFill, LAYER.burnLine]) this.map.setFilter(id, contourFilter)
+    this.map.setFilter(LAYER.burnCenters, ['all', inPeriod, ['>=', ['get', 'area_ha'], minContourHa]])
+    this.map.setFilter(LAYER.severity, ['all', inPeriod, ['in', ['get', 'severity'], ['literal', severities]], ['>=', ['get', 'contour_ha'], minContourHa]])
+
+    const shown: ExpressionSpecification[] = [['>=', ['get', 'confidence'], minConfidence]]
+    if (playheadTs != null) shown.push(['<=', ['get', 'ts'], playheadTs])
+    if (dayNight !== 'all') shown.push(['==', ['get', 'is_night'], dayNight === 'night'])
+    if (satellites.length) shown.push(['in', ['get', 'satellite'], ['literal', satellites]])
+    const isFire: ExpressionSpecification = ['==', ['get', 'kind'], 'fire']
+    this.map.setFilter(LAYER.fireCore, ['all', isFire, ...shown])
+    this.map.setFilter(LAYER.fireGlow, ['all', isFire, ...shown])
+    this.map.setFilter(LAYER.filtered, this.showFiltered ? ['all', ['!=', ['get', 'kind'], 'fire'], ...shown.slice(1)] : ['literal', false])
 
     if (playheadTs == null) {
       this.pulse.pause(0)
       this.map.setFilter(LAYER.firePulse, ['literal', false])
     } else {
-      this.map.setFilter(LAYER.firePulse, ['all', isFire, ['<=', ['get', 'ts'], playheadTs], ['>', ['get', 'ts'], playheadTs - PULSE_WINDOW_S]])
+      this.map.setFilter(LAYER.firePulse, ['all', isFire, ...shown, ['>', ['get', 'ts'], playheadTs - PULSE_WINDOW_S]])
       this.pulse.play()
     }
   }
 
-  refreshTiles(version: number) {
+  refreshTiles(version: number | string) {
     const source = this.map.getSource(SRC.burns)
     if (source && 'setTiles' in source) (source as unknown as { setTiles: (t: string[]) => void }).setTiles([this.tileUrl(version)])
   }

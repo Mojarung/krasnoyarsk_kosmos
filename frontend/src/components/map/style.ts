@@ -26,7 +26,7 @@ export const LAYER = {
   scene: 'scene-overlay',
 } as const
 
-export const SEVERITY_ZOOM = 9
+export const SEVERITY_ZOOM = 10
 const FOCUS_BOUNDS = [
   [15, 30],
   [80, 30],

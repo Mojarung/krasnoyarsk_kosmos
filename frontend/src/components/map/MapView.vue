@@ -52,10 +52,11 @@ onMounted(async () => {
   watch(() => query.result, (result) => instance.setHotspots(result?.hotspots ?? (EMPTY as never)), { immediate: true })
   watch([() => query.dateFrom, () => query.dateTo, () => ui.playhead], syncTime, { immediate: true })
   watch([() => ui.showFiltered, () => ui.showSeverity], ([filtered, severity]) => instance.setLayerToggles(filtered, severity), { immediate: true })
+  watch(() => ui.filters, (filters) => instance.setDisplayFilters(filters), { immediate: true, deep: true })
   watch(() => ui.basemap, (basemap) => instance.setBasemap(basemap), { immediate: true })
   watch(() => ui.theme, (theme) => void instance.setTheme(theme, themeBackground()), { flush: 'post' })
   watch(() => live.zones, (zones) => instance.setZones(zones), { immediate: true })
-  watch(() => live.dataVersion, (version) => instance.refreshTiles(version))
+  watch(() => query.meta?.tiles_version, (version) => version != null && instance.refreshTiles(version), { immediate: true })
   watch(
     [() => ui.showSources, () => live.dataVersion],
     async ([visible]) => instance.setSources(visible ? await api.sources() : EMPTY, visible),

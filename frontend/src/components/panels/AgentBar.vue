@@ -4,12 +4,16 @@ import { onClickOutside } from '@vueuse/core'
 import { gsap } from 'gsap'
 import { computed, nextTick, ref, watch } from 'vue'
 import MorphLoader from '@/components/common/MorphLoader.vue'
-import { streamSse } from '@/lib/api'
+import { type AgentAction, type AgentCardData, streamSse } from '@/lib/api'
 import { useQueryStore } from '@/stores/query'
+import { useUiStore } from '@/stores/ui'
+import AgentCard from './AgentCard.vue'
 
 const query = useQueryStore()
+const ui = useUiStore()
 
-const SUGGESTIONS = ['Гари в Калмыкии за июль 2023', 'Что горело в Ростовской области в 2020 году', 'Астраханская область, весна 2024']
+const SUGGESTIONS = ['Самый крупный пожар в Ростовской области за всё время', 'Гари в Калмыкии за июнь 2019', 'Сколько ложных срабатываний отсеяно в Волгоградской области', 'Что нужно восстанавливать в Астраханской области после 2020 года']
+const FOCUS_DELAY_MS = 2600
 
 const root = ref<HTMLElement | null>(null)
 const answerBox = ref<HTMLElement | null>(null)
@@ -18,6 +22,7 @@ const answer = ref('')
 const busy = ref(false)
 const open = ref(false)
 const mode = ref<string | null>(null)
+const card = ref<AgentCardData | null>(null)
 let controller: AbortController | null = null
 
 const modeLabel = computed(() => (mode.value === 'llm' ? query.meta?.agent.model ?? 'LLM' : mode.value === 'rules' ? 'разбор по правилам' : null))
@@ -38,20 +43,31 @@ async function ask(text = input.value) {
   controller = new AbortController()
   answer.value = ''
   mode.value = null
+  card.value = null
   busy.value = true
   open.value = true
   try {
     for await (const item of streamSse('/api/v1/agent/chat', { message }, controller.signal)) {
       if (item.event === 'token') answer.value += item.data.text
       else if (item.event === 'done') mode.value = item.data.mode
-      else if (item.event === 'action') {
-        query.apply({ geometry: item.data.geometry, regionId: item.data.region_id, from: item.data.date_from, to: item.data.date_to })
-      }
+      else if (item.event === 'card') card.value = item.data
+      else if (item.event === 'action') applyAction(item.data)
     }
   } catch (e) {
     if (!(e instanceof DOMException && e.name === 'AbortError')) answer.value = 'Агент недоступен. Запрос можно задать вручную в панели слева.'
   } finally {
     busy.value = false
+  }
+}
+
+function applyAction(action: AgentAction) {
+  if (action.type === 'set_query') {
+    query.apply({ geometry: action.geometry, regionId: action.region_id, from: action.date_from, to: action.date_to })
+  } else if (action.type === 'open_tab') {
+    ui.insightOpen = true
+    ui.insightTab = action.tab
+  } else {
+    window.setTimeout(() => (ui.flyTarget = { lon: action.lon, lat: action.lat, zoom: action.zoom }), FOCUS_DELAY_MS)
   }
 }
 
@@ -62,7 +78,7 @@ function close() {
 </script>
 
 <template>
-  <div ref="root" class="relative w-full max-w-[560px]">
+  <div ref="root" class="relative w-full max-w-[640px]">
     <form class="panel flex h-12 items-center gap-2 !rounded-full pl-4 pr-1.5 transition-shadow duration-300 focus-within:shadow-[0_0_0_2px_var(--ring)]" @submit.prevent="ask()">
       <Search class="size-4 shrink-0 text-muted-foreground" />
       <input
@@ -86,15 +102,16 @@ function close() {
       <div class="p-4">
         <div v-if="!answer && !busy" class="space-y-1.5">
           <div class="label-caps mb-2">Примеры</div>
-          <button v-for="item in SUGGESTIONS" :key="item" type="button" class="block w-full rounded-full bg-surface-2 px-4 py-2 text-left text-[13px] transition-[border-radius,background-color] duration-300 ease-spring hover:rounded-2xl hover:bg-surface-3" @click="ask(item)">
+          <button v-for="item in SUGGESTIONS" :key="item" type="button" class="block w-full rounded-full bg-surface-2 px-4 py-2 text-left text-[13px] transition-colors duration-200 hover:bg-surface-3 active:scale-[0.99]" @click="ask(item)">
             {{ item }}
           </button>
         </div>
         <div v-else class="flex gap-3">
           <MorphLoader v-if="busy && !answer" :size="26" />
-          <p class="flex-1 text-[13px] leading-relaxed whitespace-pre-wrap">{{ answer }}<span v-if="busy" class="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse rounded-full bg-primary" /></p>
+          <p class="flex-1 text-sm font-medium leading-relaxed whitespace-pre-wrap">{{ answer }}<span v-if="busy" class="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse rounded-full bg-primary" /></p>
           <button type="button" class="self-start text-muted-foreground hover:text-foreground" aria-label="Закрыть ответ" @click="close"><X class="size-4" /></button>
         </div>
+        <AgentCard v-if="card" :card="card" />
         <div v-if="modeLabel" class="mt-2.5 text-[11px] text-muted-foreground">Ответ: {{ modeLabel }} · карта и справка уже обновлены</div>
       </div>
     </div>

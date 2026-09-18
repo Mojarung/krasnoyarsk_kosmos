@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarRange, ChevronLeft, Layers, Map as MapIcon, MapPinned, PenTool, Satellite, SlidersHorizontal, Square, X } from '@lucide/vue'
+import { CalendarRange, ChevronLeft, Funnel, Layers, Map as MapIcon, MapPinned, PenTool, Satellite, SlidersHorizontal, Square, X } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import BubbleTabs from '@/components/common/BubbleTabs.vue'
 import FoldSection from '@/components/common/FoldSection.vue'
@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { fmt } from '@/lib/format'
 import { AOI_REGION_ID, useQueryStore } from '@/stores/query'
-import { type Basemap, useUiStore } from '@/stores/ui'
+import { type Basemap, type DayNight, useUiStore } from '@/stores/ui'
 
-type Section = 'area' | 'period' | 'layers'
+type Section = 'area' | 'period' | 'layers' | 'filters'
 
 const query = useQueryStore()
 const ui = useUiStore()
@@ -21,7 +21,35 @@ const BASEMAPS: { value: Basemap; label: string; icon: typeof MapIcon; hint: str
   { value: 'satellite', label: 'Спутник', icon: Satellite, hint: 'Снимки Esri World Imagery под подписями' },
 ]
 
+const SEVERITIES = [
+  { value: 1, label: 'Слабая', color: 'var(--sev-1)' },
+  { value: 2, label: 'Средняя', color: 'var(--sev-2)' },
+  { value: 3, label: 'Сильная', color: 'var(--sev-3)' },
+]
+const AREA_STEPS = [0, 10, 50, 100, 500, 1000]
+const CONFIDENCE_STEPS = [0, 0.5, 0.7, 0.9]
+const SATELLITES = [
+  { value: 'SNPP', label: 'Suomi NPP' },
+  { value: 'NOAA20', label: 'NOAA-20' },
+  { value: 'NOAA21', label: 'NOAA-21' },
+]
+const DAY_NIGHT: { value: DayNight; label: string; hint: string }[] = [
+  { value: 'all', label: 'Все', hint: 'Дневные и ночные пролёты' },
+  { value: 'day', label: 'День', hint: 'Только дневные пролёты' },
+  { value: 'night', label: 'Ночь', hint: 'Только ночные пролёты: сигнал слабее, но нет бликов' },
+]
+
 const opened = ref<Section | null>('area')
+const filtersSummary = computed(() => (ui.activeFilterCount ? `активно: ${ui.activeFilterCount}` : 'показано всё'))
+
+function toggleIn<T>(list: T[], value: T): T[] {
+  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
+}
+
+function toggleSeverity(value: number) {
+  const next = toggleIn(ui.filters.severities, value)
+  if (next.length) ui.filters.severities = next.sort()
+}
 
 const regions = computed(() => [
   { id: AOI_REGION_ID, name: 'Вся территория' },
@@ -119,6 +147,45 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
           <label v-tip="'Факелы и печи, найденные по истории: горят почти в каждом пролёте из года в год'" class="flex items-center justify-between gap-3">Постоянные источники<Switch v-model="ui.showSources" /></label>
         </div>
         <BubbleTabs v-model="ui.basemap" :options="BASEMAPS" size="sm" stretch class="mt-3.5" />
+      </FoldSection>
+
+      <FoldSection title="Фильтры карты" :summary="filtersSummary" :icon="Funnel" :open="opened === 'filters'" @toggle="toggle('filters')">
+        <div class="space-y-3.5 text-[13px]">
+          <div>
+            <div class="mb-1.5 text-xs text-muted-foreground">Степень поражения</div>
+            <div class="flex gap-1.5">
+              <Button v-for="item in SEVERITIES" :key="item.value" v-tip="`Показывать гари со степенью: ${item.label.toLowerCase()}`" size="xs" :variant="ui.filters.severities.includes(item.value) ? 'tonal' : 'outline'" class="flex-1" @click="toggleSeverity(item.value)">
+                <i class="size-2 rounded-full" :style="{ background: item.color }" />{{ item.label }}
+              </Button>
+            </div>
+          </div>
+          <div>
+            <div class="mb-1.5 text-xs text-muted-foreground">Площадь контура не меньше, га</div>
+            <div class="flex flex-wrap gap-1.5">
+              <Button v-for="step in AREA_STEPS" :key="step" v-tip="step ? `Скрыть гари меньше ${step} га` : 'Показывать все гари'" size="xs" :variant="ui.filters.minContourHa === step ? 'tonal' : 'outline'" @click="ui.filters.minContourHa = step">{{ step || 'все' }}</Button>
+            </div>
+          </div>
+          <div>
+            <div class="mb-1.5 text-xs text-muted-foreground">Термоточки: время пролёта</div>
+            <BubbleTabs v-model="ui.filters.dayNight" :options="DAY_NIGHT" size="sm" stretch />
+          </div>
+          <div>
+            <div class="mb-1.5 text-xs text-muted-foreground">Уверенность модели не ниже</div>
+            <div class="flex gap-1.5">
+              <Button v-for="step in CONFIDENCE_STEPS" :key="step" v-tip="step ? `Только термоточки с вероятностью горения от ${step}` : 'Все термоточки выше порога модели'" size="xs" :variant="ui.filters.minConfidence === step ? 'tonal' : 'outline'" class="flex-1" @click="ui.filters.minConfidence = step">{{ step ? step.toFixed(1) : 'любая' }}</Button>
+            </div>
+          </div>
+          <div>
+            <div class="mb-1.5 text-xs text-muted-foreground">Спутник</div>
+            <div class="flex gap-1.5">
+              <Button v-for="item in SATELLITES" :key="item.value" v-tip="'Ни один не выбран: показаны все спутники'" size="xs" :variant="ui.filters.satellites.includes(item.value) ? 'tonal' : 'outline'" class="flex-1" @click="ui.filters.satellites = toggleIn(ui.filters.satellites, item.value)">{{ item.label }}</Button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+            <span class="text-[11px] leading-snug text-muted-foreground">Фильтры меняют только карту. Справка считается по всему запросу.</span>
+            <Button v-tip="'Вернуть все фильтры в исходное состояние'" size="xs" variant="ghost" :disabled="!ui.activeFilterCount" @click="ui.resetFilters()">Сбросить</Button>
+          </div>
+        </div>
       </FoldSection>
     </div>
   </MorphPanel>

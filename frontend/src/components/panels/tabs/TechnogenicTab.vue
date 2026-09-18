@@ -73,7 +73,7 @@ watch(() => live.dataVersion, load)
           v-for="(source, index) in sources.slice(0, 40)"
           :key="index"
           type="button"
-          class="flex w-full items-center justify-between rounded-full bg-surface-2 px-3.5 py-1.5 text-xs transition-[border-radius,background-color] duration-300 ease-spring hover:rounded-xl hover:bg-surface-3"
+          class="flex w-full items-center justify-between rounded-full bg-surface-2 px-3.5 py-1.5 text-xs transition-colors duration-200 hover:bg-surface-3 active:scale-[0.99]"
           @click="ui.flyTarget = { lon: source.geometry.coordinates[0], lat: source.geometry.coordinates[1], zoom: 12 }"
         >
           <span class="flex items-center gap-2"><Factory class="size-3.5 text-technogenic" />{{ source.geometry.coordinates[1].toFixed(3) }}, {{ source.geometry.coordinates[0].toFixed(3) }}</span>

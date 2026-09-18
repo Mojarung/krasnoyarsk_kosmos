@@ -92,10 +92,27 @@ export function curlFor(path: string, params: QueryParams): string {
   return `curl -X POST '${origin}${path}' -H 'Content-Type: application/json' -d '${JSON.stringify(params)}'`
 }
 
+export interface AgentCardData {
+  title: string
+  date_from: string
+  date_to: string
+  notes: string[]
+  empty: boolean
+  kpis: { label: string; value: number; unit: string; sub: string }[]
+  severity: import('./types').SeverityShare[]
+  largest: { contour_id: number; scene_id: string; date_post: string; area_ha: number; lon: number; lat: number } | null
+}
+
+export type AgentAction =
+  | { type: 'set_query'; region_id: string; geometry: AreaGeometry; date_from: string; date_to: string }
+  | { type: 'focus'; lon: number; lat: number; zoom: number; scene_id: string }
+  | { type: 'open_tab'; tab: 'report' | 'metrics' | 'restoration' | 'technogenic' }
+
 export type AgentEvent =
   | { event: 'token'; data: { text: string } }
   | { event: 'done'; data: { mode: string; model?: string } }
-  | { event: 'action'; data: { type: 'set_query'; region_id: string; geometry: AreaGeometry; date_from: string; date_to: string } }
+  | { event: 'card'; data: AgentCardData }
+  | { event: 'action'; data: AgentAction }
 
 export async function* streamSse(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
   const response = await fetch(path, {

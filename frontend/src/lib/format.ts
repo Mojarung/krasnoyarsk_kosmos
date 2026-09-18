@@ -56,3 +56,9 @@ export function toIsoDate(ms: number): string {
 export function dayNumber(iso: string): number {
   return Math.floor(Date.parse(iso) / DAY_MS)
 }
+
+export function plural(n: number, forms: [one: string, few: string, many: string]): string {
+  const value = Math.abs(Math.round(n))
+  const form = value % 10 === 1 && value % 100 !== 11 ? forms[0] : value % 10 >= 2 && value % 10 <= 4 && !(value % 100 >= 12 && value % 100 <= 14) ? forms[1] : forms[2]
+  return `${fmt.int(value)} ${form}`
+}

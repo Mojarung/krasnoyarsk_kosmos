@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { api } from '@/lib/api'
+import { APP_NAME, APP_TAGLINE } from '@/lib/brand'
 import { fmt } from '@/lib/format'
 import { useLiveStore } from '@/stores/live'
 import { useQueryStore } from '@/stores/query'
@@ -41,10 +42,10 @@ async function removeZone(id: number) {
     <div v-tip="'Сервис мониторинга природных пожаров по данным VIIRS и Sentinel'" class="panel pointer-events-auto flex h-12 shrink-0 items-center gap-2.5 !rounded-full pl-2 pr-5">
       <span class="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground"><Flame class="size-4" /></span>
       <div class="leading-none">
-        <div class="text-sm font-semibold tracking-tight">Зарево</div>
+        <div class="text-sm font-semibold tracking-tight">{{ APP_NAME }}</div>
         <div class="mt-0.5 hidden text-[10px] text-muted-foreground sm:block">
           <template v-if="data">{{ data.af_scenes + data.bs_scenes }} сцен · {{ fmt.compact(data.hotspots) }} термоточек</template>
-          <template v-else>мониторинг природных пожаров</template>
+          <template v-else>{{ APP_TAGLINE }}</template>
         </div>
       </div>
     </div>
