@@ -1,0 +1,128 @@
+import type { FeatureCollection, Point } from 'geojson'
+import type {
+  AlertItem,
+  AreaGeometry,
+  Meta,
+  PipelineMetrics,
+  Quality,
+  QueryResult,
+  SceneSummary,
+  TimelineDay,
+  Zone,
+} from './types'
+
+const BASE = '/api/v1'
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, init)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    const detail = typeof body?.detail === 'string' ? body.detail : `Ошибка ${response.status}`
+    throw new ApiError(response.status, detail)
+  }
+  return response.status === 204 ? (undefined as T) : response.json()
+}
+
+function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+}
+
+export interface QueryParams {
+  geometry: AreaGeometry
+  date_from: string
+  date_to: string
+}
+
+export const api = {
+  meta: () => request<Meta>(`${BASE}/meta`),
+  timeline: () => request<TimelineDay[]>(`${BASE}/timeline`),
+  query: (params: QueryParams, signal?: AbortSignal) => post<QueryResult>(`${BASE}/query?contours=false`, params, signal),
+  sources: () => request<FeatureCollection<Point>>(`${BASE}/technogenic/sources`),
+  scene: (id: string) => request<SceneSummary>(`${BASE}/scenes/${id}`),
+  scenes: (params: Record<string, string>) =>
+    request<{ total: number; items: SceneSummary[] }>(`${BASE}/scenes?${new URLSearchParams(params)}`),
+  reprocess: (id: string) => post<{ job_id: string }>(`${BASE}/scenes/${id}/reprocess`, {}),
+  uploadScene: (form: FormData) => request<{ job_id: string; scene_id: string }>(`${BASE}/scenes`, { method: 'POST', body: form }),
+  jobs: () => request<{ counts: Record<string, number>; items: import('./types').JobEvent[] }>(`${BASE}/jobs?limit=12`),
+  pipelineMetrics: () => request<PipelineMetrics>(`${BASE}/metrics/pipeline`),
+  quality: () => request<Quality | null>(`${BASE}/metrics/quality`),
+  zones: () => request<Zone[]>(`${BASE}/zones`),
+  createZone: (name: string, geometry: AreaGeometry, webhook_url: string | null) =>
+    post<Zone>(`${BASE}/zones`, { name, geometry, webhook_url }),
+  deleteZone: (id: number) => request<void>(`${BASE}/zones/${id}`, { method: 'DELETE' }),
+  alerts: () => request<{ unread: number; items: AlertItem[] }>(`${BASE}/alerts`),
+  markAlertsRead: () => request<void>(`${BASE}/alerts/read`, { method: 'POST' }),
+  quicklookUrl: (sceneId: string, name: string) => `${BASE}/scenes/${sceneId}/quicklooks/${name}.webp`,
+}
+
+export async function download(path: string, params: QueryParams, filename: string): Promise<void> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new ApiError(response.status, body?.detail ?? `Ошибка ${response.status}`)
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? filename
+  const url = URL.createObjectURL(await response.blob())
+  const link = Object.assign(document.createElement('a'), { href: url, download: name })
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export function curlFor(path: string, params: QueryParams): string {
+  const origin = window.location.origin
+  return `curl -X POST '${origin}${path}' -H 'Content-Type: application/json' -d '${JSON.stringify(params)}'`
+}
+
+export type AgentEvent =
+  | { event: 'token'; data: { text: string } }
+  | { event: 'done'; data: { mode: string; model?: string } }
+  | { event: 'action'; data: { type: 'set_query'; region_id: string; geometry: AreaGeometry; date_from: string; date_to: string } }
+
+export async function* streamSse(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify(body),
+    signal,
+  })
+  if (!response.ok || !response.body) throw new ApiError(response.status, `Ошибка ${response.status}`)
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) return
+    buffer += value.replaceAll('\r\n', '\n')
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const block = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+      let event = 'message'
+      const data: string[] = []
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data.push(line.slice(5).trim())
+      }
+      if (data.length) yield { event, data: JSON.parse(data.join('\n')) } as AgentEvent
+      boundary = buffer.indexOf('\n\n')
+    }
+  }
+}
