@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.domain.catalog import LC_GROUP_LABELS, lc_group
-from firewatch.services.query import CLIPPED_HA, QUERY_GEOM, SpatioTemporalQuery
+from firewatch.services.query import CLIPPED_HA_INLINE, QUERY_GEOM, SCENES_IN_QUERY, SpatioTemporalQuery
 
 SCORE_WEIGHTS = {"f1_af": 0.35, "iou_burn": 0.35, "miou_sev": 0.30}
 KELVIN_OFFSET = 273.15
@@ -57,40 +57,24 @@ _HOTSPOT_MONTHS = text(
     """
 )
 
-_BURN_STATS = text(
+_BURN_CONTOURS = text(
     f"""
-    WITH q AS (SELECT {QUERY_GEOM} AS geom), hit AS (
-        SELECT b.id, b.scene_id, b.date_post, {CLIPPED_HA.format(t="b")} AS ha
-        FROM burn_areas b CROSS JOIN q
-        WHERE ST_Intersects(b.geom, q.geom) AND b.date_pre <= :date_to AND b.date_post >= :date_from
-    )
-    SELECT count(*) AS contours, coalesce(avg(ha), 0) AS mean_ha, coalesce(max(ha), 0) AS max_ha,
-           coalesce(percentile_cont(0.5) WITHIN GROUP (ORDER BY ha), 0) AS median_ha,
-           (SELECT ST_Area(geom::geography) / 10000.0 FROM q) AS query_ha
-    FROM hit
+    WITH {SCENES_IN_QUERY}
+    SELECT b.id, b.scene_id, b.date_post, b.area_ha AS ha
+    FROM hit JOIN burn_areas b ON b.scene_id = hit.id
+    WHERE hit.whole
+    UNION ALL
+    SELECT b.id, b.scene_id, b.date_post, {CLIPPED_HA_INLINE.format(t="b")} AS ha
+    FROM hit JOIN burn_areas b ON b.scene_id = hit.id
+    WHERE NOT hit.whole AND ST_Intersects(b.geom, {QUERY_GEOM})
     """
 )
 
-_BURN_MONTHS = text(
-    f"""
-    WITH q AS (SELECT {QUERY_GEOM} AS geom)
-    SELECT to_char(b.date_post, 'YYYY-MM') AS month, sum({CLIPPED_HA.format(t="b")}) AS ha, count(*) AS contours
-    FROM burn_areas b CROSS JOIN q
-    WHERE ST_Intersects(b.geom, q.geom) AND b.date_pre <= :date_to AND b.date_post >= :date_from
-    GROUP BY 1 ORDER BY 1
-    """
+_BURN_POINTS = text(
+    "SELECT id, ST_X(ST_PointOnSurface(geom)) AS lon, ST_Y(ST_PointOnSurface(geom)) AS lat FROM burn_areas WHERE id = ANY(:ids)"
 )
 
-_BURN_TOP = text(
-    f"""
-    WITH q AS (SELECT {QUERY_GEOM} AS geom)
-    SELECT b.id, b.scene_id, b.date_post, {CLIPPED_HA.format(t="b")} AS ha,
-           ST_X(ST_PointOnSurface(b.geom)) AS lon, ST_Y(ST_PointOnSurface(b.geom)) AS lat
-    FROM burn_areas b CROSS JOIN q
-    WHERE ST_Intersects(b.geom, q.geom) AND b.date_pre <= :date_to AND b.date_post >= :date_from
-    ORDER BY ha DESC LIMIT :top
-    """
-)
+_QUERY_AREA = text(f"SELECT ST_Area(({QUERY_GEOM})::geography) / 10000.0")
 
 _PIPELINE = text(
     """
@@ -219,31 +203,41 @@ async def fetch_burn_metrics(
     session: AsyncSession, query: SpatioTemporalQuery, total_ha: float, severity_ha: list[float]
 ) -> dict[str, Any]:
     params = query.sql_params
-    stats = (await session.execute(_BURN_STATS, params)).mappings().one()
-    months = (await session.execute(_BURN_MONTHS, params)).mappings()
-    top = (await session.execute(_BURN_TOP, params | {"top": TOP_CONTOURS})).mappings()
+    contours = [dict(r) for r in (await session.execute(_BURN_CONTOURS, params)).mappings()]
+    query_ha = (await session.execute(_QUERY_AREA, params)).scalar_one()
+
+    areas = sorted(c["ha"] for c in contours)
+    by_month: dict[str, list[float]] = defaultdict(list)
+    for contour in contours:
+        by_month[contour["date_post"].strftime("%Y-%m")].append(contour["ha"])
+    top = sorted(contours, key=lambda c: -c["ha"])[:TOP_CONTOURS]
+    points = {
+        r["id"]: (r["lon"], r["lat"])
+        for r in (await session.execute(_BURN_POINTS, {"ids": [c["id"] for c in top]})).mappings()
+    }
     weighted = sum((k + 1) * ha for k, ha in enumerate(severity_ha))
     return {
-        "contours": stats["contours"],
-        "mean_ha": round(stats["mean_ha"], 2),
-        "median_ha": round(stats["median_ha"], 2),
-        "max_ha": round(stats["max_ha"], 2),
-        "query_area_km2": round(stats["query_ha"] / 100.0, 1),
-        "burned_share": _r4(total_ha / stats["query_ha"]) if stats["query_ha"] else None,
+        "contours": len(contours),
+        "mean_ha": round(sum(areas) / len(areas), 2) if areas else 0.0,
+        "median_ha": round(areas[len(areas) // 2], 2) if areas else 0.0,
+        "max_ha": round(areas[-1], 2) if areas else 0.0,
+        "query_area_km2": round(query_ha / 100.0, 1),
+        "burned_share": _r4(total_ha / query_ha) if query_ha else None,
         "severity_index": round(weighted / total_ha, 3) if total_ha else None,
         "by_month": [
-            {"month": m["month"], "area_ha": round(m["ha"], 2), "contours": m["contours"]} for m in months
+            {"month": month, "area_ha": round(sum(values), 2), "contours": len(values)}
+            for month, values in sorted(by_month.items())
         ],
         "largest": [
             {
-                "contour_id": t["id"],
-                "scene_id": t["scene_id"],
-                "date_post": t["date_post"].isoformat(),
-                "area_ha": round(t["ha"], 2),
-                "lon": round(t["lon"], 5),
-                "lat": round(t["lat"], 5),
+                "contour_id": c["id"],
+                "scene_id": c["scene_id"],
+                "date_post": c["date_post"].isoformat(),
+                "area_ha": round(c["ha"], 2),
+                "lon": round(points[c["id"]][0], 5),
+                "lat": round(points[c["id"]][1], 5),
             }
-            for t in top
+            for c in top
         ],
     }
 

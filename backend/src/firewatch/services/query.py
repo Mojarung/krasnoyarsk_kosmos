@@ -15,6 +15,23 @@ from firewatch.domain.catalog import HOTSPOT_KIND_LABELS, LC_GROUP_LABELS, SEVER
 
 CLUSTER_EPSG = 32638
 QUERY_GEOM = "ST_SetSRID(ST_GeomFromGeoJSON(:geometry), 4326)"
+# В регионе сотни тысяч полигонов степеней, геометрическая проверка каждого стоит секунды.
+# Если след сцены целиком внутри запроса, все её контуры тоже внутри: их площади складываются
+# без геометрии. По-честному режутся только сцены, которые запрос пересекает по границе.
+# Геометрия запроса подставляется в предикаты выражением, а не через JOIN с CTE: так PostGIS
+# кеширует подготовленную геометрию между строками. Через материализованный CTE тот же запрос
+# выполнялся 12-21 с вместо 0,7 с.
+SCENES_IN_QUERY = f"""
+    hit AS MATERIALIZED (
+        SELECT sc.id, ST_Within(sc.footprint, {QUERY_GEOM}) AS whole
+        FROM scenes sc
+        WHERE sc.kind = 'bs' AND sc.status = 'ready' AND ST_Intersects(sc.footprint, {QUERY_GEOM})
+          AND sc.date_pre <= :date_to AND sc.date_post >= :date_from
+    )"""
+CLIPPED_HA_INLINE = (
+    "CASE WHEN ST_Within({t}.geom, " + QUERY_GEOM + ") THEN {t}.area_ha "
+    "ELSE ST_Area(ST_Transform(ST_Intersection({t}.geom, " + QUERY_GEOM + "), {t}.epsg)) / 10000.0 END"
+)
 _KIND_SQL = (
     "CASE WHEN h.code = 3 THEN 'glint' WHEN h.code = 2 OR h.persistent THEN 'technogenic' ELSE 'fire' END"
 )
@@ -167,10 +184,15 @@ _SEVERITY_POLYGONS = text(
 
 _SEVERITY_BY_SCENE = text(
     f"""
-    WITH q AS (SELECT {QUERY_GEOM} AS geom)
-    SELECT s.scene_id, s.severity, sum({CLIPPED_HA.format(t="s")}) AS area_ha, sum(s.area_ha) AS matched_full_ha
-    FROM severity_polygons s JOIN scenes sc ON sc.id = s.scene_id CROSS JOIN q
-    WHERE ST_Intersects(s.geom, q.geom) AND sc.date_pre <= :date_to AND sc.date_post >= :date_from
+    WITH {SCENES_IN_QUERY}
+    SELECT s.scene_id, s.severity, sum(s.area_ha) AS area_ha
+    FROM hit JOIN severity_polygons s ON s.scene_id = hit.id
+    WHERE hit.whole
+    GROUP BY s.scene_id, s.severity
+    UNION ALL
+    SELECT s.scene_id, s.severity, sum({CLIPPED_HA_INLINE.format(t="s")}) AS area_ha
+    FROM hit JOIN severity_polygons s ON s.scene_id = hit.id
+    WHERE NOT hit.whole AND ST_Intersects(s.geom, {QUERY_GEOM})
     GROUP BY s.scene_id, s.severity
     """
 )
