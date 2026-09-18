@@ -1,0 +1,31 @@
+import logging
+import uuid
+
+from faststream import FastStream
+from faststream.rabbit import Channel
+from pydantic import BaseModel
+
+from firewatch.config import get_settings
+from firewatch.infra import s3
+from firewatch.infra.broker import INGEST_QUEUE, broker
+from firewatch.pipeline.ingest import process_scene
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+class IngestMessage(BaseModel):
+    job_id: uuid.UUID
+    scene_id: str
+
+
+app = FastStream(broker)
+
+
+@app.on_startup
+async def prepare_storage() -> None:
+    s3.ensure_bucket()
+
+
+@broker.subscriber(INGEST_QUEUE, channel=Channel(prefetch_count=get_settings().worker_prefetch))
+async def ingest(message: IngestMessage) -> None:
+    await process_scene(message.job_id, message.scene_id)
