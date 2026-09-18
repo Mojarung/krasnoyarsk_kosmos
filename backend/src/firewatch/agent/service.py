@@ -188,16 +188,16 @@ def lead_sentence(intent: str, region: Region, report: dict[str, Any]) -> str:
         )
     if intent == "technogenic":
         return (
-            f"Из {hot['raw_total']} термоаномалий отсеяно {hot['technogenic'] + hot['glint']}: "
+            f"Из {hot['raw_total']} термоточек отсеяно {hot['technogenic'] + hot['glint']}: "
             f"{plural(hot['technogenic'], TECHNOGENIC)} и {plural(hot['glint'], GLINTS)}. "
-            f"Предотвращено: {plural(hot['false_dispatches_prevented'], DISPATCHES)}. "
-            "Подробности на вкладке «Фильтр»."
+            f"Сэкономлено выездов: {hot['false_dispatches_prevented']}. "
+            "Открыл раздел «Ложные тревоги» с разбором."
         )
     if intent == "restoration":
         return (
             f"Под искусственное лесовосстановление попадает {_ha(plan['damage_area_ha'])} га, "
             f"само восстановится {_ha(plan['natural_area_ha'])} га, ориентировочные затраты {_money(plan['total_cost'], plan['currency'])}. "
-            "Разбивка на вкладке «Лес»."
+            "Открыл раздел «Восстановление» с разбивкой по мероприятиям."
         )
     return f"{_ha(burn['total_ha'])} га гари, {plural(burn['contours'], CONTOURS)}, {plural(hot['fire_clusters'], CLUSTERS)}."
 
