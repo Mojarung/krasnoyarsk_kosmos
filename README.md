@@ -125,6 +125,14 @@ uv run python inference.py --data-dir DATA/test --output submission.csv
 
 `--data-dir` указывает на каталог с `sample_submission.csv`, `af/` и `bs/`. Чипы обрабатываются параллельно (до 8 процессов, `--workers`), сбой чтения одного чипа пишется в лог и даёт пустую маску, скрипт не падает. Формат RLE закреплён тестами `ml/tests/test_rle.py`.
 
+Проверка готового файла по всем правилам постановки (пары, границы, порядок и несоприкосновение серий, пересечения классов, NaN):
+
+```bash
+uv run python validate_submission.py --submission submission.csv --template DATA/test/sample_submission.csv
+```
+
+На выданном тесте (180 AF и 89 BS чипов) инференс занимает 9,5 с на 12 ядрах, валидатор ошибок не находит.
+
 ## Структура входных данных
 
 ```
