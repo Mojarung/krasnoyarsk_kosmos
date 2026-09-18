@@ -1,0 +1,23 @@
+{
+  "currency": "RUB",
+  "disclaimer": "Ставки условные и нужны для демонстрации расчёта. Замените их региональными нормативами в assets/restoration_rules.json.",
+  "actions": {
+    "natural": { "label": "Естественное восстановление, повторный контроль по снимку", "rate_per_ha": 0, "damage": false },
+    "assisted": { "label": "Содействие естественному возобновлению", "rate_per_ha": 18000, "damage": false },
+    "planting": { "label": "Искусственное лесовосстановление (посадка)", "rate_per_ha": 65000, "damage": true },
+    "erosion": { "label": "Залужение и контроль эрозии", "rate_per_ha": 9000, "damage": false },
+    "agro": { "label": "Агротехнические работы, проверка на пал стерни", "rate_per_ha": 4000, "damage": false },
+    "none": { "label": "Мероприятия не требуются", "rate_per_ha": 0, "damage": false }
+  },
+  "rules": {
+    "forest": { "1": "natural", "2": "assisted", "3": "planting" },
+    "shrub": { "1": "natural", "2": "assisted", "3": "planting" },
+    "grass": { "1": "natural", "2": "natural", "3": "erosion" },
+    "wetland": { "1": "natural", "2": "natural", "3": "assisted" },
+    "crop": { "1": "agro", "2": "agro", "3": "agro" },
+    "bare": { "1": "none", "2": "none", "3": "erosion" },
+    "built": { "1": "none", "2": "none", "3": "none" },
+    "water": { "1": "none", "2": "none", "3": "none" },
+    "other": { "1": "natural", "2": "natural", "3": "erosion" }
+  }
+}
