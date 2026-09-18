@@ -1,11 +1,11 @@
 import { gsap } from 'gsap'
-import { type FilterSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl } from 'maplibre-gl'
+import { type FilterSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection } from 'geojson'
 import type { AreaGeometry, HotspotCollection, HotspotProps, SceneSummary, Zone } from '@/lib/types'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
-import { baseStyle, focusMask, LAYER, overlayLayers, SRC } from './style'
+import { focusMask, LAYER, loadBaseStyle, type MapTheme, OVERLAY_SOURCES, overlayLayers, SRC } from './style'
 
 setWorkerUrl(workerUrl)
 
@@ -49,16 +49,23 @@ export class FireMap {
   private draw: { stop: () => void } | null = null
   private window: TimeWindow = { fromDay: 0, toDay: 1e6, playheadTs: null }
   private showFiltered = true
+  private satellite = false
   ready: Promise<void>
 
-  constructor(
+  static async create(container: HTMLElement, theme: MapTheme, background: string, callbacks: MapCallbacks): Promise<FireMap> {
+    const instance = new FireMap(container, await loadBaseStyle(theme, background), callbacks)
+    await instance.ready
+    return instance
+  }
+
+  private constructor(
     container: HTMLElement,
-    background: string,
+    style: StyleSpecification,
     private callbacks: MapCallbacks,
   ) {
     this.map = new MapLibre({
       container,
-      style: baseStyle(background),
+      style,
       ...INTRO_VIEW,
       minZoom: 1,
       maxZoom: 15,
@@ -189,8 +196,21 @@ export class FireMap {
   }
 
   setBasemap(basemap: 'dark' | 'satellite') {
-    this.map.setLayoutProperty(SRC.basemapSat, 'visibility', basemap === 'satellite' ? 'visible' : 'none')
-    this.map.setLayoutProperty(SRC.basemapDark, 'visibility', basemap === 'dark' ? 'visible' : 'none')
+    this.satellite = basemap === 'satellite'
+    this.map.setLayoutProperty(SRC.basemapSat, 'visibility', this.satellite ? 'visible' : 'none')
+  }
+
+  async setTheme(theme: MapTheme, background: string) {
+    const next = await loadBaseStyle(theme, background)
+    this.map.setStyle(next, {
+      transformStyle: (previous, style) => {
+        if (!previous) return style
+        const sources = Object.fromEntries(Object.entries(previous.sources).filter(([id]) => OVERLAY_SOURCES.has(id)))
+        const layers = previous.layers.filter((layer) => 'source' in layer && OVERLAY_SOURCES.has(layer.source))
+        return { ...style, sources: { ...style.sources, ...sources }, layers: [...style.layers, ...layers] }
+      },
+    })
+    this.map.once('styledata', () => this.setBasemap(this.satellite ? 'satellite' : 'dark'))
   }
 
   setLayerToggles(showFiltered: boolean, showSeverity: boolean) {

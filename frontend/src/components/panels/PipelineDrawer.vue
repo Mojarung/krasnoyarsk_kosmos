@@ -140,7 +140,7 @@ onMounted(() => live.loadJobs())
         </div>
 
         <Button class="w-full" :disabled="sending || missing.length > 0 || !datesReady" @click="submit">
-          {{ sending ? 'Загружаем...' : missing.length ? `Не хватает: ${missing.map((r) => ROLE_LABELS[r]).join(', ')}` : 'Отправить в обработку' }}
+          {{ sending ? 'Загружаем...' : missing.length ? `Не хватает файлов: ${missing.length}` : datesReady ? 'Отправить в обработку' : 'Укажите даты съёмки' }}
         </Button>
         <p v-if="message" class="text-xs" :class="message.tone === 'ok' ? 'text-tertiary' : 'text-destructive'">{{ message.text }}</p>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Crosshair, Download, Flame, ShieldCheck, Siren, Target } from '@lucide/vue'
+import { Crosshair, Download, Flame, Info, ShieldCheck, Siren, Target } from '@lucide/vue'
 import { ref } from 'vue'
 import AnimatedNumber from '@/components/common/AnimatedNumber.vue'
 import BubbleTabs from '@/components/common/BubbleTabs.vue'
@@ -48,11 +48,11 @@ async function save(path: string, key: string) {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="relative overflow-hidden rounded-[24px] bg-primary-container px-5 py-4 text-on-primary-container">
+  <div class="space-y-3">
+    <div class="relative overflow-hidden rounded-[24px] bg-primary-container px-5 py-3.5 text-on-primary-container">
       <div class="label-caps !text-current opacity-70">Пройдено огнём</div>
       <div class="mt-1 flex items-baseline gap-2">
-        <AnimatedNumber :value="props.report.burn.total_ha" :format="fmt.ha" class="display-number text-[44px]" />
+        <AnimatedNumber :value="props.report.burn.total_ha" :format="fmt.ha" class="display-number text-[40px]" />
         <span class="text-lg opacity-80">га</span>
       </div>
       <div class="mt-1.5 text-xs opacity-75">
@@ -74,7 +74,7 @@ async function save(path: string, key: string) {
       <div class="label-caps mb-1.5">Крупнейшие гари</div>
       <div class="space-y-1">
         <button
-          v-for="item in props.report.burn.largest.slice(0, 3)"
+          v-for="item in props.report.burn.largest.slice(0, 2)"
           :key="item.contour_id"
           type="button"
           class="flex w-full items-center justify-between rounded-full bg-surface-2 px-3.5 py-2 text-[13px] transition-[border-radius,background-color] duration-300 ease-spring hover:rounded-2xl hover:bg-surface-3"
@@ -88,7 +88,7 @@ async function save(path: string, key: string) {
 
     <div class="rounded-[22px] bg-surface-2 p-3.5">
       <div class="mb-2.5 flex items-center justify-between">
-        <span class="flex items-center gap-1.5 text-[13px] font-medium"><Download class="size-3.5" />Выгрузка</span>
+        <span class="flex items-center gap-1.5 text-[13px] font-medium" :title="props.report.method.area"><Download class="size-3.5" />Выгрузка<Info class="size-3 text-muted-foreground" /></span>
         <BubbleTabs v-model="layer" :options="LAYERS" size="sm" />
       </div>
       <div class="flex flex-wrap gap-1.5">
@@ -103,7 +103,7 @@ async function save(path: string, key: string) {
         </Button>
       </div>
       <p v-if="failure" class="mt-2 text-xs text-destructive">{{ failure }}</p>
-      <p class="mt-2 text-[11px] leading-snug text-muted-foreground">{{ props.report.method.area }}</p>
+      <p class="mt-2 text-[11px] leading-snug text-muted-foreground">Площади считаются в UTM зоны сцены, {{ props.report.burn.by_severity.length }} степени, атрибуты: id контура, степень, га.</p>
     </div>
   </div>
 </template>

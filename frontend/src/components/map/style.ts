@@ -1,7 +1,6 @@
-import type { AddLayerObject, ExpressionSpecification, StyleSpecification } from 'maplibre-gl'
+import type { AddLayerObject, ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
 export const SRC = {
-  basemapDark: 'basemap-dark',
   basemapSat: 'basemap-sat',
   aoi: 'aoi',
   regions: 'regions',
@@ -36,52 +35,67 @@ const FOCUS_BOUNDS = [
   [15, 30],
 ]
 
-export function focusMask(rings: number[][][]): GeoJSON.Feature<GeoJSON.Polygon> {
-  return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [FOCUS_BOUNDS, ...rings] } }
+function signedArea(ring: number[][]): number {
+  let sum = 0
+  for (let i = 0; i < ring.length - 1; i++) sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+  return sum
 }
 
-export function baseStyle(background: string): StyleSpecification {
-  return {
-    version: 8,
-    projection: { type: 'globe' },
-    sky: {
-      'sky-color': '#0b0a12',
-      'horizon-color': '#2a1a12',
-      'fog-color': '#120f0d',
-      'sky-horizon-blend': 0.6,
-      'horizon-fog-blend': 0.8,
-      'fog-ground-blend': 0.9,
-      'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 0.6, 7, 0],
-    },
-    sources: {
-      [SRC.basemapDark]: {
-        type: 'raster',
-        tiles: ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`),
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: '© OpenStreetMap, © CARTO',
-      },
-      [SRC.basemapSat]: {
-        type: 'raster',
-        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-        tileSize: 256,
-        maxzoom: 18,
-        attribution: 'Esri, Maxar, Earthstar Geographics',
-      },
-    },
-    layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': background } },
-      { id: SRC.basemapDark, type: 'raster', source: SRC.basemapDark, paint: { 'raster-opacity': 1, 'raster-fade-duration': 250 } },
-      {
-        id: SRC.basemapSat,
-        type: 'raster',
-        source: SRC.basemapSat,
-        layout: { visibility: 'none' },
-        paint: { 'raster-saturation': -0.25, 'raster-brightness-max': 0.82 },
-      },
-    ],
-  }
+export function focusMask(rings: number[][][]): GeoJSON.Feature<GeoJSON.Polygon> {
+  const holes = rings.map((ring) => (signedArea(ring) > 0 ? [...ring].reverse() : ring))
+  return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [FOCUS_BOUNDS, ...holes] } }
 }
+
+export type MapTheme = 'dark' | 'light'
+
+const STYLE_URLS: Record<MapTheme, string> = {
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+  light: 'https://tiles.openfreemap.org/styles/positron',
+}
+const STYLE_TIMEOUT_MS = 5000
+const LOCAL_NAME: ExpressionSpecification = ['coalesce', ['get', 'name:ru'], ['get', 'name'], ['get', 'name_en']]
+const SKY: Record<MapTheme, StyleSpecification['sky']> = {
+  dark: { 'sky-color': '#0b0a12', 'horizon-color': '#2a1a12', 'fog-color': '#120f0d', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.8, 'fog-ground-blend': 0.9, 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 0.6, 7, 0] },
+  light: { 'sky-color': '#cfe3f5', 'horizon-color': '#fff1e8', 'fog-color': '#fff8f5', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.8, 'fog-ground-blend': 0.9, 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 0.6, 7, 0] },
+}
+const SATELLITE_LAYER: LayerSpecification = {
+  id: SRC.basemapSat,
+  type: 'raster',
+  source: SRC.basemapSat,
+  layout: { visibility: 'none' },
+  paint: { 'raster-saturation': -0.2, 'raster-brightness-max': 0.85, 'raster-fade-duration': 250 },
+}
+const SATELLITE_SOURCE = {
+  type: 'raster' as const,
+  tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+  tileSize: 256,
+  maxzoom: 18,
+  attribution: 'Esri, Maxar, Earthstar Geographics',
+}
+
+function fallbackStyle(background: string): StyleSpecification {
+  return { version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': background } }] }
+}
+
+/** Подложка OpenFreeMap без ключа. Нет сети - остаётся фон, наши слои работают как обычно. */
+export async function loadBaseStyle(theme: MapTheme, background: string): Promise<StyleSpecification> {
+  let style: StyleSpecification
+  try {
+    const response = await fetch(STYLE_URLS[theme], { signal: AbortSignal.timeout(STYLE_TIMEOUT_MS) })
+    if (!response.ok) throw new Error(String(response.status))
+    style = await response.json()
+  } catch {
+    style = fallbackStyle(background)
+  }
+  const layers = style.layers.map((layer) =>
+    layer.type === 'symbol' && layer.layout?.['text-field'] ? { ...layer, layout: { ...layer.layout, 'text-field': LOCAL_NAME } } : layer,
+  )
+  const firstSymbol = layers.findIndex((layer) => layer.type === 'symbol')
+  layers.splice(firstSymbol === -1 ? layers.length : firstSymbol, 0, SATELLITE_LAYER)
+  return { ...style, projection: { type: 'globe' }, sky: SKY[theme], sources: { ...style.sources, [SRC.basemapSat]: SATELLITE_SOURCE }, layers }
+}
+
+export const OVERLAY_SOURCES = new Set<string>(Object.values(SRC).filter((id) => id !== SRC.basemapSat))
 
 const severityColor: ExpressionSpecification = ['match', ['get', 'severity'], 1, '#ffd166', 2, '#f77f00', 3, '#d00000', '#f77f00']
 
@@ -90,6 +104,8 @@ export function overlayLayers(): AddLayerObject[] {
     { id: 'focus-mask', type: 'fill', source: SRC.focus, paint: { 'fill-color': '#0a0807', 'fill-opacity': 0.58, 'fill-opacity-transition': { duration: 600 } } },
     { id: 'regions-line', type: 'line', source: SRC.regions, paint: { 'line-color': '#f0dfd6', 'line-opacity': 0.16, 'line-width': 1 } },
     { id: 'aoi-line', type: 'line', source: SRC.aoi, paint: { 'line-color': '#ffb693', 'line-opacity': 0.5, 'line-width': 1.4, 'line-dasharray': [3, 2] } },
+    { id: 'focus-glow', type: 'fill', source: SRC.query, paint: { 'fill-color': '#ffb693', 'fill-opacity': 0.05 } },
+    { id: 'focus-halo', type: 'line', source: SRC.query, paint: { 'line-color': '#ffb693', 'line-width': 14, 'line-blur': 12, 'line-opacity': 0.35 } },
     { id: 'focus-line', type: 'line', source: SRC.query, paint: { 'line-color': '#ffb693', 'line-width': 2, 'line-opacity': 0.9 } },
     {
       id: LAYER.burnFill,

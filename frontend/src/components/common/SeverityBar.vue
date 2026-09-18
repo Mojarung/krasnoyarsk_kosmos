@@ -19,8 +19,8 @@ const total = computed(() => props.items.reduce((sum, item) => sum + item.area_h
         :style="{ flexGrow: total ? Math.max(item.share, 0.004) : 0, flexBasis: 0, background: COLORS[item.severity] }"
       />
     </div>
-    <div class="mt-3 grid grid-cols-3 gap-2">
-      <div v-for="item in props.items" :key="item.severity" class="rounded-2xl bg-surface-2 px-3 py-2.5">
+    <div class="mt-2.5 grid grid-cols-3 gap-2">
+      <div v-for="item in props.items" :key="item.severity" class="rounded-2xl bg-surface-2 px-3 py-2">
         <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span class="size-2 rounded-full" :style="{ background: COLORS[item.severity] }" />
           {{ item.label }}

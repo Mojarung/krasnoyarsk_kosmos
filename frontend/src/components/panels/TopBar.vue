@@ -26,7 +26,7 @@ async function removeZone(id: number) {
 <template>
   <TooltipProvider :delay-duration="250">
     <header class="flex items-start gap-3">
-      <div class="panel flex h-12 shrink-0 items-center gap-2.5 !rounded-full pl-2 pr-5">
+      <div class="panel pointer-events-auto flex h-12 shrink-0 items-center gap-2.5 !rounded-full pl-2 pr-5">
         <span class="grid size-8 place-items-center rounded-full bg-primary text-primary-foreground"><Flame class="size-4" /></span>
         <div class="leading-none">
           <div class="text-sm font-semibold tracking-tight">Зарево</div>
@@ -37,9 +37,9 @@ async function removeZone(id: number) {
         </div>
       </div>
 
-      <div class="flex min-w-0 flex-1 justify-center"><AgentBar /></div>
+      <div class="flex min-w-0 flex-1 justify-center"><AgentBar class="pointer-events-auto" /></div>
 
-      <div class="panel flex h-12 shrink-0 items-center gap-0.5 !rounded-full px-1.5">
+      <div class="panel pointer-events-auto flex h-12 shrink-0 items-center gap-0.5 !rounded-full px-1.5">
         <Tooltip>
           <TooltipTrigger as-child>
             <Button variant="ghost" size="sm" class="relative gap-2" @click="ui.pipelineOpen = true">
