@@ -136,7 +136,7 @@ onKeyStroke('Escape', () => {
         <div v-if="query.report" class="mt-3 rounded-[20px] bg-surface-2 px-4 py-3">
           <div class="text-[13px] text-muted-foreground">Пройдено огнём</div>
           <div class="mt-0.5 flex items-baseline gap-1.5"><span class="display-number text-2xl">{{ fmt.ha(query.report.burn.total_ha) }}</span><span class="text-sm text-muted-foreground">га</span></div>
-          <div class="mt-1 text-xs leading-snug text-muted-foreground">{{ plural(query.report.hotspots.fire_clusters, ['очаг', 'очага', 'очагов']) }}, отсеяно {{ fmt.int(query.report.hotspots.technogenic + query.report.hotspots.glint) }}</div>
+          <div class="mt-1 text-xs leading-snug text-muted-foreground">{{ plural(query.report.hotspots.fire_clusters, ['очаг', 'очага', 'очагов']) }}, {{ plural(query.report.hotspots.false_dispatches_prevented, ['ложный выезд', 'ложных выезда', 'ложных выездов']) }}</div>
         </div>
         <div class="mt-3 flex"><ExportMenu /></div>
       </nav>
