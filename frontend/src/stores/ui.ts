@@ -1,6 +1,7 @@
 import { useStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watchEffect } from 'vue'
+import type { FireEventDetail, PassportTarget } from '@/lib/types'
 
 export type Basemap = 'dark' | 'satellite'
 export type DrawMode = 'idle' | 'polygon' | 'rectangle'
@@ -32,6 +33,8 @@ export const useUiStore = defineStore('ui', () => {
   const queryOpen = ref(wide)
   const pipelineOpen = ref(false)
   const compareSceneId = ref<string | null>(null)
+  const passportTarget = shallowRef<PassportTarget | null>(null)
+  const passport = shallowRef<FireEventDetail | null>(null)
   const playing = ref(false)
   const playhead = ref<number | null>(null)
   const flyTarget = shallowRef<{ lon: number; lat: number; zoom?: number } | null>(null)
@@ -97,6 +100,6 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     theme, basemap, showFiltered, showSeverity, showSources, drawMode, insightTab, insightOpen, queryOpen,
-    pipelineOpen, compareSceneId, playing, playhead, flyTarget, filters, activeFilterCount, toggleTheme, resetFilters,
+    pipelineOpen, compareSceneId, passportTarget, passport, playing, playhead, flyTarget, filters, activeFilterCount, toggleTheme, resetFilters,
   }
 })

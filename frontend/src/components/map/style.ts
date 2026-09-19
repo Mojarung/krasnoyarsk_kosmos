@@ -24,6 +24,7 @@ export const SRC = {
   sources: 'persistent-sources',
   zones: 'zones',
   scene: 'scene-overlay',
+  event: 'event-overlay',
 } as const
 
 export const LAYER = {

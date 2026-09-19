@@ -82,7 +82,7 @@ watch(
 // Перелёт к объекту происходит на карте, а широкий лист её закрывает.
 watch(() => ui.flyTarget, (target) => target && isWide.value && open('overview'))
 onKeyStroke('Escape', () => {
-  if (isWide.value && ui.insightOpen && !ui.pipelineOpen && !ui.compareSceneId) open('overview')
+  if (isWide.value && ui.insightOpen && !ui.pipelineOpen && !ui.compareSceneId && !ui.passportTarget) open('overview')
 })
 </script>
 

@@ -3,6 +3,48 @@ import type { Feature, FeatureCollection, MultiPolygon, Point, Polygon } from 'g
 export type AreaGeometry = Polygon | MultiPolygon
 export type HotspotKind = 'fire' | 'technogenic' | 'glint'
 
+export type FireEventStatus = 'linked' | 'hotspot_only' | 'burn_only' | 'ambiguous'
+export interface FireEventSummary {
+  id: string
+  status: FireEventStatus
+  date_from: string
+  date_to: string
+  first_seen: string | null
+  last_seen: string | null
+  observed_days: number
+  hotspot_count: number
+  scene_ids: string[]
+  area_ha: number | null
+  candidate_ids: string[]
+}
+export interface FireEventMethod {
+  association: string
+  observation: string
+  af_radius_m: number
+  af_gap_hours: number
+  burn_radius_m: number
+}
+export interface FireEventList {
+  total: number
+  items: FireEventSummary[]
+  offset: number
+  limit: number
+  method: FireEventMethod
+}
+export interface FireEventDetail extends FireEventSummary {
+  burn: { area_ha: number; by_severity: SeverityShare[] } | null
+  restoration: (Report['restoration'] & { note: string }) | null
+  timeline: { at: string; kind: 'viirs'; hotspot_count: number; satellites: string[]; scene_ids: string[]; confidence_mean: number }[]
+  scenes: { id: string; date_pre: string; date_post: string; cloud_frac: number | null; area_ha: number }[]
+  evidence: { hotspot_id: number; distance_m: number }[]
+  method: FireEventMethod
+  bbox: [number, number, number, number] | null
+  map: FeatureCollection
+  scope_note: string
+  generated_at: string
+}
+export type PassportTarget = { type: 'list' } | { type: 'event'; id: string } | { type: 'hotspot'; id: number } | { type: 'scene'; id: string }
+
 export interface HotspotProps {
   id: number
   kind: HotspotKind

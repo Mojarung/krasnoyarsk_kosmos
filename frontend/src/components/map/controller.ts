@@ -2,7 +2,7 @@ import { gsap } from 'gsap'
 import { type ExpressionSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection } from 'geojson'
-import type { AreaGeometry, HotspotCollection, HotspotProps, SceneSummary, Zone } from '@/lib/types'
+import type { AreaGeometry, FireEventDetail, HotspotCollection, HotspotProps, SceneSummary, Zone } from '@/lib/types'
 import { DEFAULT_FILTERS, type DisplayFilters } from '@/stores/ui'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
@@ -24,6 +24,7 @@ export interface TimeWindow {
 
 export interface MapCallbacks {
   onSceneClick: (sceneId: string) => void
+  onHotspotClick: (hotspotId: number) => void
   onDrawn: (geometry: AreaGeometry) => void
 }
 
@@ -43,7 +44,7 @@ function hotspotPopup(p: HotspotProps): string {
     <div class="flex items-center gap-2 font-medium"><span class="size-2 rounded-full" style="background:${tone}"></span>${escapeHtml(p.kind_label)}</div>
     <div class="mt-1 text-xs opacity-70">${fmt.dateTimeUtc(p.acquired_at)}, ${escapeHtml(p.satellite ?? '')}${p.is_night ? ', ночь' : ''}</div>
     <div class="mt-1.5 grid grid-cols-2 gap-x-3 text-xs"><span>I4 ${fmt.num(p.bt_i4)} K</span><span>I4-I5 ${fmt.num(p.bt_i4 - p.bt_i5)} K</span><span>${escapeHtml(p.landcover)}</span><span>увер. ${fmt.pct(p.confidence)}</span></div>
-    ${power}${weather}${reason}</div>`
+    ${power}${weather}${reason}${p.kind === 'fire' ? '<div class="mt-2 text-xs">Нажмите, чтобы открыть паспорт пожара</div>' : ''}</div>`
 }
 
 export class FireMap {
@@ -54,6 +55,8 @@ export class FireMap {
   private draw: { stop: () => void } | null = null
   private window: TimeWindow = { fromDay: 0, toDay: 1e6, playheadTs: null }
   private showFiltered = true
+  private showSeverity = true
+  private eventActive = false
   private display: DisplayFilters = DEFAULT_FILTERS
   private satellite = false
   private tilesVersion: number | string = 0
@@ -88,11 +91,17 @@ export class FireMap {
 
   private setup() {
     const map = this.map
-    for (const id of [SRC.aoi, SRC.regions, SRC.focus, SRC.query, SRC.hotspots, SRC.sources, SRC.zones]) {
+    const colors = this.eventColors()
+    for (const id of [SRC.aoi, SRC.regions, SRC.focus, SRC.query, SRC.hotspots, SRC.sources, SRC.zones, SRC.event]) {
       map.addSource(id, { type: 'geojson', data: EMPTY })
     }
     map.addSource(SRC.burns, { type: 'vector', tiles: [this.tileUrl(0)], minzoom: 3, maxzoom: 11 })
     for (const layer of overlayLayers()) map.addLayer(layer)
+    map.addLayer({ id: 'event-burn', type: 'fill', source: SRC.event, filter: ['==', ['get', 'kind'], 'burn'], paint: {
+      'fill-color': ['match', ['get', 'severity'], 1, colors.sev1, 2, colors.sev2, colors.sev3], 'fill-opacity': 0.78,
+    } })
+    map.addLayer({ id: 'event-outline', type: 'line', source: SRC.event, filter: ['==', ['get', 'kind'], 'burn'], paint: { 'line-color': colors.outline, 'line-width': 0.5, 'line-opacity': 0.5 } })
+    map.addLayer({ id: 'event-hotspot', type: 'circle', source: SRC.event, filter: ['==', ['get', 'kind'], 'hotspot'], paint: { 'circle-color': colors.fire, 'circle-radius': ['interpolate', ['linear'], ['zoom'], 7, 2, 10, 3, 13, 5], 'circle-stroke-color': colors.stroke, 'circle-stroke-width': 1 } })
 
     const pulse = { radius: 4, opacity: 0.9 }
     this.pulse.to(pulse, {
@@ -110,9 +119,18 @@ export class FireMap {
     map.on('mouseout', () => this.clearHover())
     map.on('click', (e) => {
       if (this.draw) return
+      const hotspot = map.queryRenderedFeatures(e.point, { layers: ['event-hotspot', LAYER.fireCore] })[0]
+      if (hotspot?.properties?.id != null) {
+        this.clearHover()
+        this.callbacks.onHotspotClick(Number(hotspot.properties.id))
+        return
+      }
       const hit = map.queryRenderedFeatures(e.point, { layers: BURN_LAYERS })[0]
       const sceneId = hit?.properties?.scene_id
-      if (typeof sceneId === 'string') this.callbacks.onSceneClick(sceneId)
+      if (typeof sceneId === 'string') {
+        this.clearHover()
+        this.callbacks.onSceneClick(sceneId)
+      }
     })
   }
 
@@ -153,7 +171,7 @@ export class FireMap {
       const title = p.severity ? `Степень: ${['', 'слабая', 'средняя', 'сильная'][p.severity]}` : 'Контур гари'
       this.popup
         .setLngLat(map.unproject([point.x, point.y]))
-        .setHTML(`<div class="text-[13px]"><div class="font-medium">${title}</div><div class="text-xs opacity-70 mt-0.5">${fmt.ha(p.area_ha)} га, нажмите, чтобы сравнить до/после</div></div>`)
+        .setHTML(`<div class="text-[13px]"><div class="font-medium">${title}</div><div class="text-xs opacity-70 mt-0.5">${fmt.ha(p.area_ha)} га, нажмите, чтобы открыть паспорт</div></div>`)
         .addTo(map)
       return
     }
@@ -204,6 +222,23 @@ export class FireMap {
     this.geojson(SRC.hotspots).setData(collection)
   }
 
+  showEvent(event: FireEventDetail | null) {
+    this.clearHover()
+    this.eventActive = !!event
+    this.setLayerToggles(this.showFiltered, this.showSeverity)
+    for (const id of [LAYER.fireCore, LAYER.fireGlow, LAYER.firePulse, LAYER.filtered]) {
+      this.map.setLayoutProperty(id, 'visibility', event ? 'none' : 'visible')
+    }
+    this.geojson(SRC.event).setData(event?.map ?? EMPTY)
+    if (!event?.bbox) return
+    const [west, south, east, north] = event.bbox
+    const mobile = window.innerWidth < 640
+    this.map.fitBounds([[west, south], [east, north]], {
+      padding: mobile ? { left: 25, right: 25, top: 85, bottom: Math.round(window.innerHeight * 0.72) } : { left: 50, right: 490, top: 100, bottom: 80 },
+      maxZoom: 12, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800,
+    })
+  }
+
   setSources(collection: FeatureCollection, visible: boolean) {
     this.geojson(SRC.sources).setData(collection)
     this.map.setLayoutProperty(LAYER.sources, 'visibility', visible ? 'visible' : 'none')
@@ -221,6 +256,21 @@ export class FireMap {
     this.map.setLayoutProperty(SRC.basemapSat, 'visibility', this.satellite ? 'visible' : 'none')
   }
 
+  private eventColors() {
+    const css = getComputedStyle(document.documentElement)
+    const token = (name: string) => css.getPropertyValue(name).trim()
+    return { sev1: token('--sev-1'), sev2: token('--sev-2'), sev3: token('--sev-3'), fire: token('--fire'), outline: token('--primary'), stroke: token('--foreground') }
+  }
+
+  private refreshEventColors() {
+    if (!this.map.getLayer('event-burn')) return
+    const c = this.eventColors()
+    this.map.setPaintProperty('event-burn', 'fill-color', ['match', ['get', 'severity'], 1, c.sev1, 2, c.sev2, c.sev3])
+    this.map.setPaintProperty('event-outline', 'line-color', c.outline)
+    this.map.setPaintProperty('event-hotspot', 'circle-color', c.fire)
+    this.map.setPaintProperty('event-hotspot', 'circle-stroke-color', c.stroke)
+  }
+
   async setTheme(theme: MapTheme, background: string) {
     const next = await loadBaseStyle(theme, background)
     this.map.setStyle(next, {
@@ -231,13 +281,17 @@ export class FireMap {
         return { ...style, sources: { ...style.sources, ...sources }, layers: [...style.layers, ...layers] }
       },
     })
-    this.map.once('styledata', () => this.setBasemap(this.satellite ? 'satellite' : 'dark'))
+    this.map.once('styledata', () => {
+      this.setBasemap(this.satellite ? 'satellite' : 'dark')
+      this.refreshEventColors()
+    })
   }
 
   setLayerToggles(showFiltered: boolean, showSeverity: boolean) {
     this.showFiltered = showFiltered
+    this.showSeverity = showSeverity
     for (const id of [LAYER.severity, LAYER.burnFill, LAYER.burnLine, LAYER.burnCenters]) {
-      this.map.setLayoutProperty(id, 'visibility', showSeverity ? 'visible' : 'none')
+      this.map.setLayoutProperty(id, 'visibility', showSeverity && !this.eventActive ? 'visible' : 'none')
     }
     this.applyTime()
   }

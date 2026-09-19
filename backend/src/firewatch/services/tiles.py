@@ -43,7 +43,8 @@ _CONTOURS = text(
                {_EPOCH_DAYS.format(col="b.date_pre")} AS t0, {_EPOCH_DAYS.format(col="b.date_post")} AS t1,
                ST_AsMVTGeom(ST_Transform(ST_PointOnSurface(b.geom), 3857), bounds.merc, 4096, 0, true) AS geom
         FROM burn_areas b, bounds, area
-        WHERE ST_PointOnSurface(b.geom) && bounds.wgs AND b.area_ha >= :min_center_ha
+        WHERE b.geom && bounds.wgs
+          AND ST_PointOnSurface(b.geom) && bounds.wgs AND b.area_ha >= :min_center_ha
           AND (area.geom IS NULL OR ST_Intersects(b.geom, area.geom))
     )
     SELECT coalesce((SELECT ST_AsMVT(contours, 'contours', 4096, 'geom', 'id') FROM contours WHERE geom IS NOT NULL), '')
@@ -138,7 +139,11 @@ async def render_tile(session: AsyncSession, z: int, x: int, y: int, clip: str =
 
 
 WARM_ZOOMS = (10, 11)
-WARM_CONCURRENCY = 4
+WARM_CONCURRENCY = 2
+# Shared across reports: one semaphore per call multiplied background load
+# on every territory change, starving interactive queries of connections.
+_warm_gate = asyncio.Semaphore(WARM_CONCURRENCY)
+_render_gate = asyncio.Semaphore(4)
 
 
 def tile_of(lon: float, lat: float, z: int) -> tuple[int, int]:
@@ -149,7 +154,11 @@ def tile_of(lon: float, lat: float, z: int) -> tuple[int, int]:
 
 
 async def cached_tile(session: AsyncSession, z: int, x: int, y: int, clip: str = "") -> bytes:
-    return await cached("tile", [z, x, y, clip], lambda: render_tile(session, z, x, y, clip), binary=True)
+    async def produce() -> bytes:
+        async with _render_gate:
+            return await render_tile(session, z, x, y, clip)
+
+    return await cached("tile", [z, x, y, clip], produce, binary=True)
 
 
 async def warm_tiles(points: list[tuple[float, float]]) -> None:
@@ -162,10 +171,9 @@ async def warm_tiles(points: list[tuple[float, float]]) -> None:
         for dx in (-1, 0, 1)
         for dy in (-1, 0, 1)
     }
-    gate = asyncio.Semaphore(WARM_CONCURRENCY)
 
     async def warm(z: int, x: int, y: int) -> None:
-        async with gate, SessionFactory() as session:
+        async with _warm_gate, SessionFactory() as session:
             await cached_tile(session, z, x, y)
 
     results = await asyncio.gather(*(warm(*tile) for tile in wanted), return_exceptions=True)

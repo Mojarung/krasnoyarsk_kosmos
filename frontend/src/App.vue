@@ -15,6 +15,7 @@ import { useUiStore } from '@/stores/ui'
 const MapView = defineAsyncComponent(() => import('@/components/map/MapView.vue'))
 const PipelineDrawer = defineAsyncComponent(() => import('@/components/panels/PipelineDrawer.vue'))
 const SceneCompare = defineAsyncComponent(() => import('@/components/panels/SceneCompare.vue'))
+const FirePassport = defineAsyncComponent(() => import('@/components/panels/FirePassport.vue'))
 
 const query = useQueryStore()
 const live = useLiveStore()
@@ -91,16 +92,20 @@ onMounted(boot)
         и без сводки. Теперь они стартуют свёрнутыми в плитку, стопкой, и
         раскрываются во всю доступную ширину — карта при этом остаётся видна.
       -->
-      <div class="flex min-h-0 flex-1 items-start justify-between gap-3 max-lg:flex-col max-lg:justify-start">
+      <div v-show="!ui.passportTarget" class="flex min-h-0 flex-1 items-start justify-between gap-3 max-lg:flex-col max-lg:justify-start">
         <QueryPanel data-enter class="pointer-events-auto shrink-0 max-lg:max-w-full" />
         <InsightPanel data-enter class="pointer-events-auto max-lg:max-w-full" />
       </div>
 
       <!-- Плашка копирайта карты сидит в правом нижнем углу и на узком экране
            накрывала подписи годов: отводим шкале запас снизу. -->
-      <div class="flex justify-center max-sm:pb-6">
+      <div v-show="!ui.passportTarget" class="flex justify-center max-sm:pb-6">
         <TimelineBar data-enter class="pointer-events-auto transition-[opacity,transform] duration-300" :class="ui.compareSceneId && '!pointer-events-none translate-y-6 !opacity-0'" />
       </div>
+    </div>
+
+    <div v-if="ui.passportTarget" v-show="!ui.compareSceneId" class="pointer-events-none absolute bottom-8 right-3 top-20 z-10 flex justify-end sm:right-4 max-sm:bottom-7 max-sm:left-3 max-sm:top-[30dvh]">
+      <FirePassport class="pointer-events-auto" />
     </div>
 
     <div class="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center">

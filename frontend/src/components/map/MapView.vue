@@ -50,7 +50,8 @@ function themeBackground(): string {
 
 onMounted(async () => {
   const instance = await FireMap.create(container.value!, ui.theme, themeBackground(), {
-    onSceneClick: (sceneId) => (ui.compareSceneId = sceneId),
+    onSceneClick: (sceneId) => (ui.passportTarget = { type: 'scene', id: sceneId }),
+    onHotspotClick: (id) => (ui.passportTarget = { type: 'hotspot', id }),
     onDrawn: (geometry) => {
       ui.drawMode = 'idle'
       query.setCustomGeometry(geometry)
@@ -78,12 +79,14 @@ onMounted(async () => {
   )
   watch(() => ui.flyTarget, (target) => target && instance.flyTo(target.lon, target.lat, target.zoom))
   watch(() => ui.drawMode, (mode) => (mode === 'idle' ? instance.stopDraw() : void instance.startDraw(mode)))
+  watch(() => ui.passport, (event) => instance.showEvent(event), { immediate: true })
   watch(
     () => ui.compareSceneId,
     async (sceneId) => {
       compareScene.value = sceneId ? await api.scene(sceneId) : null
       instance.showScene(compareScene.value, compareScene.value?.kind === 'bs' ? 'rgb_post' : 'thermal')
-      if (!sceneId && query.geometry) instance.setFocus(query.geometry)
+      if (!sceneId && ui.passport) instance.showEvent(ui.passport)
+      else if (!sceneId && query.geometry) instance.setFocus(query.geometry)
     },
   )
 })

@@ -61,6 +61,9 @@ const rows = computed(() => [
 
 <template>
   <div class="px-1">
+    <button type="button" class="mb-4 flex w-full items-center justify-between gap-2 rounded-xl bg-secondary px-4 py-3 text-left text-sm font-medium outline-none hover:bg-surface-3 focus-visible:ring-2 focus-visible:ring-ring" @click="ui.passportTarget = { type: 'list' }">
+      Паспорта пожаров<ChevronRight class="size-4" />
+    </button>
     <!-- Итог: число крупнее всего остального, единица рядом, контуры и сцены — справа мелким. -->
     <section v-tip="props.report.method.area">
       <div class="text-[13px] text-muted-foreground">Пройдено огнём</div>
@@ -129,7 +132,7 @@ const rows = computed(() => [
         <button
           v-for="item in burn.largest.slice(0, 2)"
           :key="item.contour_id"
-          v-tip="'Перелететь к гари. Клик по контуру на карте откроет сравнение до и после'"
+          v-tip="'Перелететь к гари. Клик по контуру откроет паспорт пожара'"
           type="button"
           class="flex items-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-left text-[13px] transition-colors duration-200 hover:bg-surface-3 active:scale-[0.98]"
           @click="ui.flyTarget = { lon: item.lon, lat: item.lat, zoom: 11 }"
