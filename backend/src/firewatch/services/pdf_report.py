@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +58,19 @@ def _months_between(start: str, end: str) -> list[str]:
         months.append(f"{year}-{month:02d}")
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
     return months
+
+
+def _day(value: str) -> str:
+    """Дата запроса в привычном виде: 01.04.2019 вместо 2019-04-01."""
+    return f"{date.fromisoformat(value):%d.%m.%Y}"
+
+
+def _stamp(value: str) -> str:
+    """Отметка времени для шапки: 19.09.2026 11:18 (UTC+0). В JSON она остаётся по ISO."""
+    moment = datetime.fromisoformat(value)
+    offset = moment.utcoffset()
+    hours = round(offset.total_seconds() / 3600) if offset else 0
+    return f"{moment:%d.%m.%Y %H:%M} (UTC{hours:+d})"
 
 
 def _heading(pdf: FPDF, text: str) -> None:
@@ -188,7 +201,8 @@ def render(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> byt
     pdf.cell(
         0,
         5,
-        f"Период {query['date_from']} - {query['date_to']}. Сформировано {report['generated_at']} UTC",
+        f"Период {_day(query['date_from'])} - {_day(query['date_to'])}."
+        f" Сформировано {_stamp(report['generated_at'])}",
         new_x="LMARGIN",
         new_y="NEXT",
     )
