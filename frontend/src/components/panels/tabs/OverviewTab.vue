@@ -55,11 +55,11 @@ const rows = computed(() => [
   },
   {
     key: 'filtered',
-    label: 'Отсеяно ложных',
-    value: fmt.int(filtered.value),
+    label: 'Ложных выездов',
+    value: fmt.int(hot.value.false_dispatches_prevented),
     unit: '',
     view: 'alarms' as InsightView,
-    hint: `Заводы, факелы и блики, которые модель не приняла за пожар. ${plural(hot.value.false_dispatches_prevented, ['выезд сэкономлен', 'выезда сэкономлено', 'выездов сэкономлено'])}`,
+    hint: `Заводы, факелы и блики, которые модель не приняла за пожар. ${plural(filtered.value, ['отсеянная термоточка образует', 'отсеянные термоточки образуют', 'отсеянных термоточек образуют'])} ${plural(hot.value.false_dispatches_prevented, ['группу', 'группы', 'групп'])} - столько выездов и сэкономлено`,
   },
   {
     key: 'planting',

@@ -24,6 +24,14 @@ const live = useLiveStore()
 const sources = shallowRef<Feature<Point, SourceProps>[]>([])
 
 const hot = computed(() => props.report.hotspots)
+/* Отсеяно считается в термоточках, выезд - в очагах: рядом стоящие точки
+   одного дня тушили бы за один раз. Наверху везде стоят выезды, чтобы числа
+   не спорили друг с другом, а разбор по точкам уходит в строку под сегментами. */
+const filtered = computed(() => hot.value.technogenic + hot.value.glint)
+const breakdown = computed(
+  () =>
+    `Отсеяно ${plural(filtered.value, ['термоточка', 'термоточки', 'термоточек'])} из ${fmt.int(hot.value.raw_total)}: они образуют ${plural(hot.value.false_dispatches_prevented, ['группу', 'группы', 'групп'])}, столько выездов и сэкономлено.`,
+)
 const segments = computed(() => [
   { key: 'fire', label: 'Природные пожары', value: hot.value.fire, color: 'var(--fire)', hint: TERMS.naturalFire },
   { key: 'technogenic', label: 'Техногенные источники', value: hot.value.technogenic, color: 'var(--technogenic)', hint: TERMS.technogenic },
@@ -41,11 +49,11 @@ watch(() => live.dataVersion, load)
 <template>
   <div class="grid items-start gap-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] @4xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.6fr)]">
     <div class="space-y-3.5">
-    <div class="rounded-[24px] bg-technogenic/15 px-5 py-4">
+    <div v-tip="'Выезд считается на очаг, а не на точку: рядом стоящие срабатывания одного дня тушили бы за один раз'" class="rounded-[24px] bg-technogenic/15 px-5 py-4">
       <div class="label-caps">Выездов сэкономлено</div>
       <div class="mt-1 flex items-baseline gap-2">
         <AnimatedNumber :value="hot.false_dispatches_prevented" class="display-number text-[44px]" />
-        <span class="text-sm text-muted-foreground">из {{ fmt.int(hot.raw_total) }} термоточек отсеяно {{ fmt.pct(hot.filtered_share) }}</span>
+        <span class="text-sm text-muted-foreground">отсеяно {{ fmt.pct(hot.filtered_share) }} срабатываний</span>
       </div>
     </div>
 
@@ -59,6 +67,7 @@ watch(() => live.dataVersion, load)
           <span class="font-medium tabular-nums">{{ fmt.int(s.value) }}</span>
         </div>
       </div>
+      <p class="mt-2 text-xs leading-snug text-muted-foreground">{{ breakdown }}</p>
     </div>
 
     <label class="flex items-center justify-between gap-3 rounded-full bg-surface-2 px-4 py-2.5 text-[13px]">

@@ -120,6 +120,7 @@ CONTOURS = ("контур", "контура", "контуров")
 DISPATCHES = ("ложный выезд", "ложных выезда", "ложных выездов")
 CLUSTERS = ("очаг пожара", "очага пожара", "очагов пожаров")
 GLINTS = ("блик", "блика", "бликов")
+GROUPS = ("группу", "группы", "групп")
 TECHNOGENIC = ("техногенный источник", "техногенных источника", "техногенных источников")
 
 
@@ -158,10 +159,10 @@ def build_card(
                     "sub": plural(hot["fire"], HOTSPOTS),
                 },
                 {
-                    "label": "Отсеяно срабатываний",
-                    "value": hot["technogenic"] + hot["glint"],
+                    "label": "Ложных выездов",
+                    "value": hot["false_dispatches_prevented"],
                     "unit": "",
-                    "sub": plural(hot["false_dispatches_prevented"], DISPATCHES),
+                    "sub": plural(hot["technogenic"] + hot["glint"], HOTSPOTS) + " отсеяно",
                 },
                 {
                     "label": "Под посадки",
@@ -188,9 +189,10 @@ def lead_sentence(intent: str, region: Region, report: dict[str, Any]) -> str:
         )
     if intent == "technogenic":
         return (
-            f"Из {hot['raw_total']} термоточек отсеяно {hot['technogenic'] + hot['glint']}: "
-            f"{plural(hot['technogenic'], TECHNOGENIC)} и {plural(hot['glint'], GLINTS)}. "
-            f"Сэкономлено выездов: {hot['false_dispatches_prevented']}. "
+            f"Сэкономлено {plural(hot['false_dispatches_prevented'], DISPATCHES)}. "
+            f"Из {hot['raw_total']} термоточек отсеяно {hot['technogenic'] + hot['glint']} - "
+            f"{plural(hot['technogenic'], TECHNOGENIC)} и {plural(hot['glint'], GLINTS)}; это "
+            f"{plural(hot['false_dispatches_prevented'], GROUPS)}. "
             "Открыл раздел «Ложные тревоги» с разбором."
         )
     if intent == "restoration":
