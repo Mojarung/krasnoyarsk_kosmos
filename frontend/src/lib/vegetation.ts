@@ -3,6 +3,7 @@ export interface VegetationFrame {
   status: 'ready' | 'cloudy' | 'missing' | 'error'
   message?: string
   date?: string
+  date_to?: string
   role?: 'before' | 'during' | 'after'
   valid_share?: number
   item_id?: string
@@ -32,4 +33,7 @@ export interface VegetationReport {
   resolution_m: number
   analyzed_ha: number
   frames: VegetationFrame[]
+  stage?: 'comparison' | 'history'
+  post_fire?: VegetationFrame
+  recent?: VegetationFrame
 }

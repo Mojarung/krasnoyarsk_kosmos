@@ -19,9 +19,10 @@ const inspection = useInspectionStore()
 const report = shallowRef<VegetationReport | null>(null)
 const pending = ref(false)
 const error = ref('')
-const selected = ref<number | null>(null)
+const selected = ref<number | 'recent'>('recent')
+const basis = ref<'post' | 'before'>('post')
 const mode = ref<'rgb' | 'change'>('rgb')
-const paired = ref(false)
+const paired = ref(true)
 const split = ref(50)
 const imageError = ref(false)
 const imageLoaded = ref(false)
@@ -34,11 +35,11 @@ let controller: AbortController | null = null
 let stopped = false
 let generation = 0
 const working = computed(() => report.value?.status === 'running' || report.value?.status === 'queued')
-const frame = computed(() => report.value?.frames.find(f => f.year === selected.value))
-const base = computed(() => report.value?.frames.find(f => f.year === report.value?.baseline_year && f.role === 'before' && f.rgb_url))
-const comparison = computed(() => frame.value?.comparison)
-const retryable = computed(() => report.value?.frames.some(f => f.status === 'error' || f.status === 'missing'))
-const canCompare = computed(() => !!(base.value && frame.value?.rgb_url && frame.value.year !== base.value.year))
+const frame = computed(() => selected.value === 'recent' ? report.value?.recent : report.value?.frames.find(f => f.year === selected.value))
+const base = computed(() => basis.value === 'post' ? report.value?.post_fire : report.value?.frames.find(f => f.year === report.value?.baseline_year && f.role === 'before' && f.rgb_url))
+const comparison = computed(() => basis.value === 'before' ? frame.value?.comparison : undefined)
+const retryable = computed(() => [...(report.value?.frames ?? []), report.value?.recent, report.value?.post_fire].some(f => f?.status === 'error' || f?.status === 'missing'))
+const canCompare = computed(() => !!(base.value?.rgb_url && frame.value?.rgb_url && frame.value.rgb_url !== base.value.rgb_url))
 const isPair = computed(() => paired.value && canCompare.value && mode.value === 'rgb')
 const baseUrl = computed(() => base.value?.rgb_url ? `${base.value.rgb_url}?v=${revision.value}` : '')
 const available = computed(() => report.value?.frames.filter(f => f.rgb_url).length ?? 0)
@@ -51,12 +52,19 @@ const delta = computed(() => {
   const value = comparison.value?.delta_ndvi
   return value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2).replace('.', ',')}`
 })
-const tabs = computed(() => [{ value: 'rgb' as const, label: 'Снимок' }, ...(frame.value?.change_url ? [{ value: 'change' as const, label: 'Растительность' }] : [])])
+const tabs = computed(() => [{ value: 'rgb' as const, label: 'Снимок' }, ...(basis.value === 'before' && frame.value?.change_url ? [{ value: 'change' as const, label: 'Растительность' }] : [])])
+const baseLabel = computed(() => basis.value === 'post' ? 'После пожара' : 'До пожара')
 const comparisonNote = computed(() => {
+  if (basis.value === 'post') {
+    if (!base.value?.rgb_url) return working.value ? 'Открываем снимок после пожара' : (base.value?.message ?? 'Снимок после пожара недоступен')
+    if (frame.value?.date && base.value.date && frame.value.date <= (base.value.date_to ?? base.value.date)) return 'Выбранный кадр снят раньше или одновременно со снимком после пожара'
+    return isPair.value ? 'Слева — после пожара. Справа — выбранный снимок.' : 'Выбранный снимок участка'
+  }
   if (comparison.value?.delta_ndvi != null) return `К ${fmt.date(comparison.value.baseline_date)} · ${fmt.ha(comparison.value.compared_ha)} га`
   if ((comparison.value?.season_gap_days ?? 0) > 14) return 'Даты съёмки отличаются больше чем на 14 дней по сезону'
   if (comparison.value) return 'Меньше 80% общих наблюдений — итог не рассчитан'
   if (frame.value?.role === 'before') return 'Снимок до пожара — исходное состояние'
+  if (selected.value === 'recent' && base.value?.rgb_url) return 'Визуальное сравнение. Для сезонного NDVI выберите летний год.'
   return working.value ? 'Готовим сравнение со снимком до пожара' : 'Нет пригодного снимка до пожара для сравнения'
 })
 function yearLabel(year: number) {
@@ -70,7 +78,6 @@ function yearLabel(year: number) {
 
 function accept(value: VegetationReport) {
   report.value = value
-  if (selected.value === null) selected.value = value.years.at(-1) ?? null
   clearTimeout(timer)
   if (working.value && !stopped) timer = setTimeout(() => poll(generation), 2000)
 }
@@ -99,11 +106,12 @@ async function load(retry = false) {
     if (!stopped && current === generation) error.value = e instanceof Error ? e.message : 'Не удалось загрузить наблюдения'
   } finally { if (!stopped && current === generation) pending.value = false }
 }
-function choose(year: number) { selected.value = year; mode.value = 'rgb' }
+function choose(year: number | 'recent') { selected.value = year; mode.value = 'rgb' }
 function close() { ui.vegetationEvent = null }
 function inspect() { inspection.start(props.event); inspection.purpose = 'recovery'; close() }
 watch(imageUrl, () => { imageLoaded.value = false; imageError.value = false })
 watch(baseUrl, () => { baseLoaded.value = false; baseError.value = false })
+watch(basis, () => { mode.value = 'rgb'; paired.value = true })
 onMounted(() => { title.value?.focus(); void load() })
 onBeforeUnmount(() => { stopped = true; controller?.abort(); clearTimeout(timer) })
 onKeyStroke('Escape', e => { e.preventDefault(); close() })
@@ -119,11 +127,15 @@ onKeyStroke('Escape', e => { e.preventDefault(); close() })
       <div v-if="error" role="alert" class="mb-3 text-sm">{{ error }}<Button class="ml-2" size="sm" variant="secondary" @click="load()">Повторить</Button></div>
       <div v-if="!report && pending" role="status" class="flex min-h-52 items-center justify-center gap-3"><MorphLoader :size="28" /><span class="text-sm">Ищем снимки</span></div>
       <template v-if="report">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <BubbleTabs v-model="basis" :options="[{ value: 'post', label: 'После пожара' }, { value: 'before', label: 'До пожара' }]" size="sm" />
+          <button type="button" class="rounded-full px-3 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring" :class="selected === 'recent' ? 'bg-primary text-primary-foreground' : 'bg-surface-2'" :aria-pressed="selected === 'recent'" @click="choose('recent')">Свежий снимок</button>
+        </div>
         <div class="mb-3 flex flex-wrap gap-1" role="group" aria-label="Год наблюдения">
           <button v-for="year in report.years" :key="year" type="button" :aria-pressed="selected === year" :aria-label="`Снимок за ${year} год`" class="min-h-11 min-w-14 flex-1 rounded-xl px-1 py-2 text-sm tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring" :class="selected === year ? 'bg-primary font-semibold text-primary-foreground' : 'bg-surface-2 hover:bg-surface-3'" @click="choose(year)">{{ year }}<span class="block text-[10px] leading-3">{{ yearLabel(year) }}</span></button>
         </div>
 
-        <div v-if="working" class="mb-3 flex items-center gap-2 text-xs text-muted-foreground" role="status"><MorphLoader :size="16" />{{ report.status === 'queued' ? 'В очереди' : `Загружаем ${report.active_year}` }}<span class="ml-auto tabular-nums">Снимков {{ available }} / {{ report.years.length }}</span></div>
+        <div v-if="working" class="mb-3 flex items-center gap-2 text-xs text-muted-foreground" role="status"><MorphLoader :size="16" />{{ report.status === 'queued' ? 'В очереди' : report.stage === 'comparison' ? 'Ищем свежий снимок' : `Загружаем ${report.active_year}` }}<span class="ml-auto tabular-nums">Летние {{ available }} / {{ report.years.length }}</span></div>
         <div v-if="report.status === 'error'" class="mb-3 text-sm" role="alert">{{ report.message }}<Button class="mt-2" size="sm" variant="secondary" @click="load(true)">Повторить загрузку</Button></div>
 
         <template v-if="frame?.rgb_url">
@@ -133,18 +145,19 @@ onKeyStroke('Escape', e => { e.preventDefault(); close() })
           </div>
           <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
             <BubbleTabs v-model="mode" :options="tabs" size="sm" />
-            <label v-if="canCompare && mode === 'rgb'" class="flex min-h-8 items-center gap-2 text-xs"><Switch v-model="paired" :aria-label="`Сравнить с ${report.baseline_year}`" />Сравнить с {{ report.baseline_year }}</label>
+            <label v-if="canCompare && mode === 'rgb'" class="flex min-h-8 items-center gap-2 text-xs"><Switch v-model="paired" aria-label="Сравнить снимки" />Сравнить</label>
           </div>
-          <div class="relative mx-auto h-[clamp(180px,36dvh,320px)] w-full overflow-hidden rounded-2xl bg-surface-3 max-sm:h-[clamp(160px,27dvh,220px)]" data-testid="vegetation-image">
-            <img v-if="isPair" :key="baseUrl" :src="baseUrl" :alt="`Территория до пожара, ${base!.date}`" class="absolute inset-0 size-full object-contain" draggable="false" @load="baseLoaded = true" @error="baseError = true" />
+          <div class="relative mx-auto h-[clamp(180px,30dvh,300px)] w-full overflow-hidden rounded-2xl bg-surface-3 max-sm:h-[clamp(140px,22dvh,180px)]" data-testid="vegetation-image">
+            <img v-if="isPair" :key="baseUrl" :src="baseUrl" :alt="`${baseLabel}, ${base!.date}`" class="absolute inset-0 size-full object-contain" draggable="false" @load="baseLoaded = true" @error="baseError = true" />
             <img :key="imageUrl" :src="imageUrl" :alt="`${mode === 'rgb' ? 'Спутниковый снимок' : 'Изменение NDVI'} ${frame.date}`" class="absolute inset-0 size-full object-contain" :style="isPair ? { clipPath: `inset(0 0 0 ${split}%)` } : undefined" draggable="false" @load="imageLoaded = true" @error="imageError = true" />
-            <template v-if="isPair"><div class="pointer-events-none absolute inset-y-0 w-px bg-white" :style="{ left: `${split}%` }" /><span class="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-xs text-white">{{ base!.date }}</span></template>
+            <template v-if="isPair"><div class="pointer-events-none absolute inset-y-0 w-px bg-white" :style="{ left: `${split}%` }" /><span class="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white">{{ baseLabel }}<br>{{ base!.date }}<template v-if="base!.date_to && base!.date_to !== base!.date"> — {{ base!.date_to }}</template></span></template>
             <span class="absolute right-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-xs text-white">{{ frame.date }}</span>
             <div v-if="(!imageLoaded || (isPair && !baseLoaded)) && !imageError && !(isPair && baseError)" class="absolute inset-0 grid place-items-center bg-surface-3"><MorphLoader :size="28" label="Открываем снимок" /></div>
             <div v-if="imageError || (isPair && baseError)" role="alert" class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface-3 text-sm"><span>Снимок не загрузился</span><Button size="sm" variant="secondary" @click="revision++">Повторить снимок</Button></div>
           </div>
           <input v-if="isPair" v-model.number="split" type="range" min="0" max="100" aria-label="Граница сравнения снимков" class="mt-3 w-full accent-primary" />
           <div class="mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground"><span>{{ role }}</span><span>Доступно {{ fmt.pct(frame.valid_share!) }} гари</span></div>
+          <p v-if="isPair && basis === 'post' && base?.status === 'cloudy'" class="mt-2 text-xs text-muted-foreground">После пожара видно {{ fmt.pct(base.valid_share!) }} гари. Штриховка — нет наблюдения.</p>
           <div v-if="mode === 'change'" class="mt-3">
             <div class="h-2 rounded-full vegetation-scale" aria-hidden="true" /><div class="mt-1 flex justify-between text-xs"><span>Меньше зелени</span><span>Без изменений</span><span>Больше</span></div>
           </div>
@@ -152,7 +165,7 @@ onKeyStroke('Escape', e => { e.preventDefault(); close() })
         </template>
         <div v-else class="flex min-h-56 flex-col items-center justify-center gap-3 text-center text-sm" role="status">
           <MorphLoader v-if="working && !frame" :size="28" />
-          <p>{{ frame?.message ?? (working ? `Снимок ${selected} ещё загружается` : 'Наблюдение недоступно') }}</p>
+          <p>{{ frame?.message ?? (working ? selected === 'recent' ? 'Загружаем свежий снимок' : `Снимок ${selected} ещё загружается` : 'Наблюдение недоступно') }}</p>
           <p v-if="working && !frame" class="text-xs text-muted-foreground">Можно закрыть — загрузка продолжится</p>
         </div>
 

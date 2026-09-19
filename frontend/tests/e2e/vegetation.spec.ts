@@ -6,7 +6,7 @@ import type { FireEventDetail } from '../../src/lib/types'
 const events = ['bs-FE08918', 'bs-FE04217', 'bs-FE06923']
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Растительность после пожара' })
 
-async function open(page: Page, event = events[0]) {
+async function open(page: Page, event = events[0], history = true) {
   await page.goto('/')
   await expect(page.locator('main > .z-50')).toHaveCount(0, { timeout: 60_000 })
   const summary = page.getByRole('button', { name: 'Паспорта пожаров', exact: true })
@@ -17,6 +17,10 @@ async function open(page: Page, event = events[0]) {
   await page.getByRole('button', { name: `Открыть паспорт ${event}`, exact: true }).click()
   await page.getByRole('button', { name: 'После пожара', exact: true }).click()
   await expect(dialog(page)).toBeVisible()
+  if (history) {
+    await dialog(page).getByRole('tab', { name: 'До пожара', exact: true }).click()
+    await dialog(page).getByRole('button', { name: /^Снимок за \d+ год$/ }).last().click()
+  }
 }
 
 async function loaded(page: Page) {
@@ -33,7 +37,7 @@ for (const event of events) {
     await expect.poll(async () => {
       report = await (await request.get(`/api/v1/vegetation/${report.id}`)).json()
       return report.status
-    }, { timeout: 240_000, intervals: [2000] }).toBe('ready')
+    }, { timeout: 240_000, intervals: [2000] }).toMatch(/^(ready|partial)$/)
     expect(report.frames).toHaveLength(report.years.length)
     expect(report.frames.every(f => f.status === 'ready')).toBeTruthy()
     for (const frame of report.frames) {
@@ -59,7 +63,7 @@ for (const event of events) {
     await open(page, event)
     await loaded(page)
     await expect(dialog(page).getByTestId('vegetation-summary')).toBeVisible()
-    await dialog(page).getByRole('switch').click()
+    await expect(dialog(page).getByRole('switch')).toBeChecked()
     await loaded(page)
     const slider = dialog(page).getByRole('slider')
     await slider.fill('70')
@@ -148,6 +152,7 @@ test('fault injection: partial result, retry and failed baseline image', async (
     return route.continue()
   })
   await dialog(page).getByRole('switch').click()
+  await dialog(page).getByRole('switch').click()
   await expect(dialog(page).getByText('Снимок не загрузился', { exact: true })).toBeVisible()
   await dialog(page).getByRole('button', { name: 'Повторить снимок' }).click()
   await loaded(page)
@@ -160,6 +165,24 @@ test('API rejects unknown events, thermopoints, unsafe identifiers and unready i
   expect((await request.get('/api/v1/vegetation/not-a-job')).status()).toBe(422)
   expect((await request.get('/api/v1/vegetation/00000000000000000000000000000000')).status()).toBe(404)
   expect((await request.get('/api/v1/vegetation/00000000000000000000000000000000/2020/rgb.webp')).status()).toBe(404)
+})
+
+test('default comparison: original post-fire image and recent observation on one grid', async ({ page, request }) => {
+  const report: VegetationReport = await (await request.post(`/api/v1/events/${events[2]}/vegetation`)).json()
+  expect(report.post_fire?.date).toBe('2020-09-05')
+  expect(report.recent?.rgb_url).toBeTruthy()
+  expect(report.recent!.date! > report.post_fire!.date!).toBeTruthy()
+  for (const url of [report.post_fire!.rgb_url!, report.recent!.rgb_url!]) {
+    expect((await request.get(url)).status()).toBe(200)
+  }
+  await open(page, events[2], false)
+  await loaded(page)
+  await expect(dialog(page).getByRole('switch')).toBeChecked()
+  await expect(dialog(page).getByRole('slider')).toBeVisible()
+  await expect(dialog(page).getByText('Изменение NDVI', { exact: true })).toHaveCount(0)
+  const sizes = await dialog(page).locator('img').evaluateAll(images => images.map(img => [(img as HTMLImageElement).naturalWidth, (img as HTMLImageElement).naturalHeight]))
+  expect(sizes).toHaveLength(2)
+  expect(sizes[0]).toEqual(sizes[1])
 })
 
 test('fault injection: background loading and polling recover after temporary network failure', async ({ page, request }) => {

@@ -17,7 +17,7 @@ import time
 import uuid
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlparse
 
 import httpx
@@ -28,7 +28,9 @@ from PIL import Image
 from pyproj import Transformer
 from rasterio.enums import Resampling
 from rasterio.features import geometry_mask
+from rasterio.io import MemoryFile
 from rasterio.vrt import WarpedVRT
+from rasterio.warp import reproject
 from scipy.ndimage import binary_erosion
 from shapely import make_valid
 from shapely.geometry import box, mapping, shape
@@ -136,7 +138,7 @@ def sign_pc(client: httpx.Client, href: str) -> str:
     return asset_url(r.json()["href"])
 
 
-def candidates(grid: dict, year: int, provider: str = "earth") -> list[dict]:
+def candidates(grid: dict, year: int, provider: str = "earth", *, recent: bool = False) -> list[dict]:
     """Bounded candidates from one provider; acquisition controls failover."""
     settings = get_settings()
     with httpx.Client(
@@ -154,6 +156,10 @@ def candidates(grid: dict, year: int, provider: str = "earth") -> list[dict]:
             "limit": 100,
             "query": {"eo:cloud_cover": {"lt": 70}},
         }
+        if recent:
+            today = date.today()
+            body["datetime"] = f"{today - timedelta(days=60)}T00:00:00Z/{today}T23:59:59Z"
+            body["sortby"] = [{"field": "datetime", "direction": "desc"}]
         r = client.post(endpoint, json=body)
         r.raise_for_status()
         found = [f for f in r.json()["features"] if make_valid(shape(f["geometry"])).covers(grid["region"])]
@@ -166,6 +172,8 @@ def candidates(grid: dict, year: int, provider: str = "earth") -> list[dict]:
                 f["properties"]["eo:cloud_cover"],
             )
         )
+        if recent:
+            found.sort(key=lambda f: f["properties"]["datetime"], reverse=True)
         # Overlapping tiles from the same pass must not consume all three attempts.
         by_day = {}
         for item in found:
@@ -173,12 +181,14 @@ def candidates(grid: dict, year: int, provider: str = "earth") -> list[dict]:
         return list(by_day.values())[:3]
 
 
-def acquire_year(grid: dict, year: int) -> tuple[dict | None, dict | None, float]:
+def acquire_year(grid: dict, year: int, *, recent: bool = False) -> tuple[dict | None, dict | None, float]:
     best, best_item, best_share = None, None, -1.0
     failed = False
     for provider in ("earth", "planetary"):
         try:
-            items = candidates(grid, year, provider)
+            items = (
+                candidates(grid, year, provider, recent=True) if recent else candidates(grid, year, provider)
+            )
         except Exception as exc:
             log.warning("Catalog %s failed for %s: %s", provider, year, type(exc).__name__)
             failed = True
@@ -194,7 +204,7 @@ def acquire_year(grid: dict, year: int) -> tuple[dict | None, dict | None, float
             share = float(frame["valid"].sum() / grid["mask"].sum())
             if share > best_share:
                 best, best_item, best_share = frame, item, share
-            if share >= 0.95:
+            if share >= (QUALITY if recent else 0.95):
                 return best, best_item, best_share
     if best is None and failed:
         raise RuntimeError("Источник снимков временно недоступен")
@@ -327,7 +337,7 @@ def compare(base: dict, frame: dict, mask: np.ndarray) -> tuple[dict, np.ndarray
     }, decorate(rgb, mask, common)
 
 
-def save_frame(job: str, year: int, frame: dict, grid: dict) -> None:
+def save_frame(job: str, year: int | str, frame: dict, grid: dict) -> None:
     out = io.BytesIO()
     np.savez_compressed(out, **frame)
     s3.put_bytes(key(job, f"{year}.npz"), out.getvalue(), "application/octet-stream")
@@ -339,6 +349,100 @@ def save_frame(job: str, year: int, frame: dict, grid: dict) -> None:
 def load_frame(job: str, year: int) -> dict:
     with np.load(io.BytesIO(s3.get_bytes(key(job, f"{year}.npz"))), allow_pickle=False) as data:
         return {k: data[k] for k in data.files}
+
+
+def prepare_post(report: dict, grid: dict) -> dict:
+    """Reproject existing post-fire quicklooks onto the SAME grid as new imagery.
+
+    The original chips use B8A and potentially different calibration. Their RGB
+    is for visual comparison only; do not mix their NDVI with the C1 B08 metric.
+    """
+    rgb = np.zeros((*grid["mask"].shape, 3), dtype=np.uint8)
+    covered = np.zeros_like(grid["mask"])
+    dates = []
+    for scene in sorted(report["source"].get("scenes", []), key=lambda s: s["date"]):
+        with MemoryFile(s3.get_bytes(scene["raster"])) as memory, memory.open() as src:
+            original = np.asarray(Image.open(io.BytesIO(s3.get_bytes(scene["rgb"]))).convert("RGB"))
+            source_transform = src.transform * Affine.scale(
+                src.width / original.shape[1], src.height / original.shape[0]
+            )
+            warped = np.zeros_like(rgb)
+            for band in range(3):
+                reproject(
+                    original[..., band],
+                    warped[..., band],
+                    src_transform=source_transform,
+                    src_crs=src.crs,
+                    dst_transform=grid["transform"],
+                    dst_crs=f"EPSG:{grid['epsg']}",
+                    resampling=Resampling.bilinear,
+                )
+            with WarpedVRT(
+                src,
+                crs=f"EPSG:{grid['epsg']}",
+                transform=grid["transform"],
+                width=grid["width"],
+                height=grid["height"],
+                resampling=Resampling.nearest,
+            ) as vrt:
+                scl = vrt.read(10)
+            usable = np.isin(scl, [4, 5]) & ~covered
+            rgb[usable] = warped[usable]
+            covered |= usable
+            dates.append(scene["date"])
+    if not dates:
+        return {"status": "missing", "message": "Снимок после пожара недоступен"}
+    share = float((covered & grid["mask"]).sum() / grid["mask"].sum())
+    s3.put_bytes(key(report["id"], "post-rgb.webp"), webp(decorate(rgb, grid["mask"], covered)), "image/webp")
+    return {
+        "year": int(min(dates)[:4]),
+        "status": "ready" if share >= QUALITY else "cloudy",
+        "date": min(dates),
+        "date_to": max(dates),
+        "role": "after",
+        "valid_share": share,
+        "rgb_url": f"/api/v1/vegetation/{report['id']}/observation/post.webp",
+    }
+
+
+def update_comparison(report: dict, grid: dict) -> None:
+    if not report.get("post_fire", {}).get("rgb_url"):
+        try:
+            report["post_fire"] = prepare_post(report, grid)
+        except Exception:
+            log.warning("Post-fire image unavailable for %s", report["id"])
+            report["post_fire"] = {"status": "error", "message": "Не удалось открыть снимок после пожара"}
+    save_report(report)
+    if report.get("recent_checked") != str(date.today()):
+        try:
+            frame, item, share = acquire_year(grid, date.today().year, recent=True)
+            if frame is None:
+                report["recent"] = {
+                    "status": "missing",
+                    "message": "За последние 60 дней снимок не найден. Выберите год ниже",
+                }
+            else:
+                observed = item["properties"]["datetime"][:10]
+                save_frame(report["id"], "recent", frame, grid)
+                report["recent"] = {
+                    "year": int(observed[:4]),
+                    "status": "ready" if share >= QUALITY else "cloudy",
+                    "date": observed,
+                    "role": "after" if observed > report["source"]["date_to"] else "before",
+                    "valid_share": share,
+                    "provider": item["provider"],
+                    "item_id": item["id"],
+                    "rgb_url": f"/api/v1/vegetation/{report['id']}/observation/recent.webp",
+                }
+        except Exception:
+            log.warning("Recent observation unavailable for %s", report["id"])
+            report["recent"] = {
+                "status": "error",
+                "message": "Свежий снимок не загрузился. Выберите год или повторите загрузку",
+            }
+        report["recent_checked"] = str(date.today())
+    report["comparison_version"] = 1
+    save_report(report)
 
 
 async def unlock(name: str, token: str) -> None:
@@ -371,11 +475,19 @@ async def process(job: str) -> None:
     report = None
     try:
         report = await asyncio.to_thread(read_report, job)
-        if report is None or report["status"] == "ready":
+        if report is None or (
+            report["status"] == "ready"
+            and report.get("comparison_version") == 1
+            and report.get("recent_checked") == str(date.today())
+        ):
             return
         source = report["source"]
         grid = await asyncio.to_thread(make_grid, source["geometry"], source["epsg"])
         report["status"] = "running"
+        if "scenes" in source:
+            report["stage"] = "comparison"
+            await asyncio.to_thread(update_comparison, report, grid)
+        report["stage"] = "history"
         # Newest first; the pre-fire reference next. A closed tab does not cancel work.
         years = report["years"]
         order = list(dict.fromkeys([years[-1], years[0], *reversed(years[1:-1])]))
@@ -454,7 +566,10 @@ async def process(job: str) -> None:
         report["active_year"] = None
         report["status"] = (
             "partial"
-            if any(f["status"] in {"error", "missing", "cloudy"} for f in report["frames"])
+            if any(
+                f["status"] in {"error", "missing", "cloudy"}
+                for f in [*report["frames"], *[report[k] for k in ("post_fire", "recent") if k in report]]
+            )
             else "ready"
         )
         await asyncio.to_thread(save_report, report)

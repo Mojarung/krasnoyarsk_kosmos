@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Response
@@ -69,6 +69,22 @@ async def start(event_id: str, session: Session, retry: bool = False):
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     job = v.fingerprint(source, years)
+    scenes = (
+        (
+            await session.execute(
+                text("""
+        SELECT files->>'s2_post' AS raster, quicklooks->>'rgb_post' AS rgb, date_post::text AS date
+        FROM scenes WHERE kind='bs' AND status='ready'
+        AND coalesce(nullif(fire_event_id,''),id)=:event_key
+        AND files ? 's2_post' AND quicklooks ? 'rgb_post'
+    """),
+                {"event_key": event_id[3:]},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    source["scenes"] = [dict(s) for s in scenes]
     lock, token = f"fw:vegetation:create:{job}", uuid.uuid4().hex
     if not await redis.set(lock, token, nx=True, ex=60):
         raise HTTPException(409, "Наблюдения уже создаются. Откройте ещё раз через пару секунд")
@@ -76,9 +92,13 @@ async def start(event_id: str, session: Session, retry: bool = False):
         report = await asyncio.to_thread(v.read_report, job)
         stale = report and await stalled(report)
         if report and (
-            report["status"] == "ready"
-            or (report["status"] in {"queued", "running"} and not stale)
-            or (not retry and report["status"] not in {"queued", "running"})
+            (report["status"] in {"queued", "running"} and not stale)
+            or (
+                not retry
+                and report["status"] not in {"queued", "running"}
+                and report.get("comparison_version") == 1
+                and report.get("recent_checked") == str(date.today())
+            )
         ):
             return v.public(report)
         if report is None:
@@ -96,6 +116,9 @@ async def start(event_id: str, session: Session, retry: bool = False):
                 "active_year": None,
             }
         # Saved frames survive retries; only unavailable observations are fetched again.
+        report["source"] = source
+        if retry:
+            report["recent_checked"] = None
         report.update(status="queued", message=None)
         await asyncio.to_thread(v.save_report, report)
         try:
@@ -118,6 +141,18 @@ async def get_report(job_id: JobId):
     if await stalled(report):
         result.update(status="error", message="Загрузка прервалась. Повторите запрос")
     return result
+
+
+@router.get("/vegetation/{job_id}/observation/{kind}.webp")
+async def observation(job_id: JobId, kind: Literal["post", "recent"]):
+    name = v.key(job_id, f"{kind}-rgb.webp")
+    if not await asyncio.to_thread(s3.exists, name):
+        raise HTTPException(404, "Изображение ещё не готово")
+    return Response(
+        await asyncio.to_thread(s3.get_bytes, name),
+        media_type="image/webp",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @router.get("/vegetation/{job_id}/{year}/{kind}.webp")
