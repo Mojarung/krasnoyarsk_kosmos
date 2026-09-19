@@ -3,14 +3,19 @@ import { ChevronRight, Crosshair, Siren, X } from '@lucide/vue'
 import { computed } from 'vue'
 import AnimatedNumber from '@/components/common/AnimatedNumber.vue'
 import SparkBars from '@/components/common/SparkBars.vue'
+import YandexMapsLink from '@/components/common/YandexMapsLink.vue'
 import { denseMonths, fmt, monthRange, plural } from '@/lib/format'
 import { TERMS } from '@/lib/glossary'
 import type { Report } from '@/lib/types'
+import { territoryBounds } from '@/lib/yandex-maps'
+import { useQueryStore } from '@/stores/query'
 import { type InsightView, useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ report: Report }>()
 const emit = defineEmits<{ open: [view: InsightView] }>()
 const ui = useUiStore()
+const query = useQueryStore()
+const mapBounds = computed(() => territoryBounds(query.geometry))
 
 const COLORS = { 1: 'var(--sev-1)', 2: 'var(--sev-2)', 3: 'var(--sev-3)' } as const
 const SEVERITY_HINTS = {
@@ -157,5 +162,6 @@ const rows = computed(() => [
         </button>
       </div>
     </section>
+    <YandexMapsLink class="mt-5" :bounds="mapBounds" :place="query.regionName" />
   </div>
 </template>

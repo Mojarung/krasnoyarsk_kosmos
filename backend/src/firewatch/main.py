@@ -7,7 +7,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from firewatch.api.routers import acquisitions, agent, analysis, events, meta, ogc, realtime, scenes, zones
+from firewatch.api.routers import (
+    acquisitions,
+    agent,
+    analysis,
+    events,
+    inspections,
+    meta,
+    ogc,
+    realtime,
+    scenes,
+    zones,
+)
 from firewatch.config import get_settings
 from firewatch.infra import s3
 from firewatch.infra.broker import broker
@@ -42,5 +53,5 @@ app.add_middleware(
     CORSMiddleware, allow_origins=get_settings().cors_origins, allow_methods=["*"], allow_headers=["*"]
 )
 
-for module in (analysis, scenes, acquisitions, realtime, zones, agent, ogc, meta, events):
+for module in (analysis, scenes, acquisitions, realtime, zones, agent, ogc, meta, events, inspections):
     app.include_router(module.router)

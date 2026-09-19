@@ -149,6 +149,20 @@ class Job(Base):
     )
 
 
+class Inspection(Base):
+    __tablename__ = "inspections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    share_token: Mapped[str] = mapped_column(String(64), unique=True)
+    event_id: Mapped[str] = mapped_column(String(80), index=True)
+    purpose: Mapped[str] = mapped_column(String(32))
+    note: Mapped[str] = mapped_column(Text)
+    site: Mapped[list[float]] = mapped_column(JSONB)
+    access: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Zone(Base):
     __tablename__ = "zones"
 
