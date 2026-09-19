@@ -6,12 +6,21 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from firewatch.config import get_settings
 from firewatch.domain.catalog import LC_GROUP_LABELS, lc_group
-from firewatch.services.query import CLIPPED_HA_INLINE, QUERY_GEOM, SCENES_IN_QUERY, SpatioTemporalQuery
+from firewatch.pipeline.frp import I4_SATURATION_K
+from firewatch.services.query import (
+    CLIPPED_HA_INLINE,
+    CLUSTER_EPSG,
+    QUERY_GEOM,
+    SCENES_IN_QUERY,
+    SpatioTemporalQuery,
+)
 
 SCORE_WEIGHTS = {"f1_af": 0.35, "iou_burn": 0.35, "miou_sev": 0.30}
 KELVIN_OFFSET = 273.15
 TOP_CONTOURS = 5
+TOP_FIRES = 5
 
 _NATURAL = "h.code = 1 AND NOT h.persistent"
 _IN_QUERY = (
@@ -33,11 +42,29 @@ _HOTSPOT_STATS = text(
     f"""
     WITH q AS (SELECT {QUERY_GEOM} AS geom)
     SELECT count(*) AS n, avg(h.bt_i4) AS bt_i4_mean, max(h.bt_i4) AS bt_i4_max,
+           sum(h.frp_mw) AS frp_sum, max(h.frp_mw) AS frp_max, avg(h.frp_mw) AS frp_mean,
+           count(*) FILTER (WHERE h.bt_i4 >= :saturation) AS saturated,
            avg(h.bt_i4 - h.bt_i5) AS delta_mean, avg(h.confidence) AS confidence_mean,
            count(*) FILTER (WHERE h.is_night) AS night, avg(h.t2m) AS t2m_mean, avg(h.rh2m) AS rh2m_mean,
            avg(h.wind_speed) AS wind_mean, max(h.wind_speed) AS wind_max,
            count(DISTINCT h.acquired_at::date) AS active_days, count(DISTINCT h.scene_id) AS passes
     FROM hotspots h CROSS JOIN q WHERE {_IN_QUERY} AND {_NATURAL}
+    """
+)
+
+_TOP_FIRES = text(
+    f"""
+    WITH q AS (SELECT {QUERY_GEOM} AS geom), pts AS (
+        SELECT h.geom, h.frp_mw, h.landcover, h.acquired_at::date AS day,
+               ST_ClusterDBSCAN(ST_Transform(h.geom, {CLUSTER_EPSG}), eps := :eps, minpoints := 1)
+                   OVER (PARTITION BY h.acquired_at::date) AS cluster_id
+        FROM hotspots h CROSS JOIN q WHERE {_IN_QUERY} AND {_NATURAL}
+    )
+    SELECT day, count(*) AS n, sum(frp_mw) AS frp_mw, max(frp_mw) AS frp_max,
+           mode() WITHIN GROUP (ORDER BY landcover) AS landcover,
+           ST_X(ST_Centroid(ST_Collect(geom))) AS lon, ST_Y(ST_Centroid(ST_Collect(geom))) AS lat
+    FROM pts GROUP BY day, cluster_id
+    ORDER BY sum(frp_mw) DESC NULLS LAST, count(*) DESC LIMIT :limit
     """
 )
 
@@ -170,15 +197,38 @@ async def fetch_quality(session: AsyncSession, query: SpatioTemporalQuery) -> di
 
 async def fetch_hotspot_metrics(session: AsyncSession, query: SpatioTemporalQuery) -> dict[str, Any]:
     params = query.sql_params
-    stats = (await session.execute(_HOTSPOT_STATS, params)).mappings().one()
+    stats = (await session.execute(_HOTSPOT_STATS, params | {"saturation": I4_SATURATION_K})).mappings().one()
     by_group: dict[str, int] = defaultdict(int)
     for row in (await session.execute(_HOTSPOT_LANDCOVER, params)).mappings():
         by_group[lc_group(row["landcover"])] += row["n"]
     months = [dict(r) for r in (await session.execute(_HOTSPOT_MONTHS, params)).mappings()]
+    top = await session.execute(
+        _TOP_FIRES, params | {"eps": get_settings().dispatch_cluster_m, "limit": TOP_FIRES}
+    )
     n = stats["n"]
     return {
         "bt_i4_mean_k": _r1(stats["bt_i4_mean"]),
         "bt_i4_max_k": _r1(stats["bt_i4_max"]),
+        "power": {
+            "total_mw": _r1(stats["frp_sum"]),
+            "max_mw": _r1(stats["frp_max"]),
+            "mean_mw": _r1(stats["frp_mean"]),
+            "saturated": stats["saturated"],
+            "saturated_share": _r4(stats["saturated"] / n) if n else None,
+            "top": [
+                {
+                    "day": row["day"].isoformat(),
+                    "hotspots": row["n"],
+                    "frp_mw": _r1(row["frp_mw"]),
+                    "frp_max_mw": _r1(row["frp_max"]),
+                    "landcover": lc_group(row["landcover"]),
+                    "label": LC_GROUP_LABELS[lc_group(row["landcover"])],
+                    "lon": round(row["lon"], 5),
+                    "lat": round(row["lat"], 5),
+                }
+                for row in top.mappings()
+            ],
+        },
         "delta_mean_k": _r1(stats["delta_mean"]),
         "confidence_mean": _r4(stats["confidence_mean"]),
         "night_share": _r4(stats["night"] / n) if n else None,

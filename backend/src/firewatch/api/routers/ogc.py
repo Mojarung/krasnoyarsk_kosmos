@@ -50,6 +50,7 @@ COLLECTIONS = {
             properties="""jsonb_build_object('kind', CASE WHEN t.code = 3 THEN 'glint' WHEN t.code = 2 OR t.persistent
                 THEN 'technogenic' ELSE 'fire' END, 'acquired_at', t.acquired_at, 'satellite', t.satellite,
                 'bt_i4', round(t.bt_i4::numeric, 1), 'bt_i5', round(t.bt_i5::numeric, 1),
+                'frp_mw', round(t.frp_mw::numeric, 2),
                 'confidence', round(t.confidence::numeric, 2), 'scene_id', t.scene_id)""",
             time_start="t.acquired_at",
             time_end="t.acquired_at",

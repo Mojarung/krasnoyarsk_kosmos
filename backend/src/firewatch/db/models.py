@@ -71,6 +71,7 @@ class Hotspot(Base):
     persistent: Mapped[bool] = mapped_column(Boolean, default=False)
     bt_i4: Mapped[float] = mapped_column(Float)
     bt_i5: Mapped[float] = mapped_column(Float)
+    frp_mw: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float] = mapped_column(Float)
     landcover: Mapped[int] = mapped_column(SmallInteger)
     is_night: Mapped[bool] = mapped_column(Boolean)
