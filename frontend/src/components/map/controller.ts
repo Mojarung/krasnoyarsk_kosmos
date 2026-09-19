@@ -1,11 +1,12 @@
 import { gsap } from 'gsap'
-import { type ExpressionSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
+import { type ExpressionSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Marker, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection } from 'geojson'
 import type { AreaGeometry, FireEventDetail, HotspotCollection, HotspotProps, SceneSummary, Zone } from '@/lib/types'
 import { DEFAULT_FILTERS, type DisplayFilters } from '@/stores/ui'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
+import type { Coordinates } from '@/lib/inspections'
 import { focusMask, LAYER, loadBaseStyle, type MapTheme, OVERLAY_SOURCES, overlayLayers, SRC } from './style'
 
 setWorkerUrl(workerUrl)
@@ -25,6 +26,7 @@ export interface TimeWindow {
 export interface MapCallbacks {
   onSceneClick: (sceneId: string) => void
   onHotspotClick: (hotspotId: number) => void
+  onInspectionPick: (point: Coordinates) => void
   onDrawn: (geometry: AreaGeometry) => void
 }
 
@@ -49,7 +51,7 @@ function hotspotPopup(p: HotspotProps): string {
 
 export class FireMap {
   readonly map: MapLibre
-  private popup = new Popup({ closeButton: false, closeOnClick: false, offset: 12, maxWidth: '300px' })
+  private popup = new Popup({ closeButton: false, closeOnClick: false, offset: 12, maxWidth: '300px', className: 'map-hover-tooltip' })
   private hovered: MapGeoJSONFeature | null = null
   private pulse = gsap.timeline({ paused: true, repeat: -1 })
   private draw: { stop: () => void } | null = null
@@ -57,6 +59,11 @@ export class FireMap {
   private showFiltered = true
   private showSeverity = true
   private eventActive = false
+  private inspectionPicking = false
+  private inspectionActive = false
+  private inspectionMarkers: Marker[] = []
+  private destroyed = false
+  private themeVersion = 0
   private display: DisplayFilters = DEFAULT_FILTERS
   private satellite = false
   private tilesVersion: number | string = 0
@@ -119,6 +126,11 @@ export class FireMap {
     map.on('mouseout', () => this.clearHover())
     map.on('click', (e) => {
       if (this.draw) return
+      if (this.inspectionPicking) {
+        this.callbacks.onInspectionPick([Number(e.lngLat.lng.toFixed(6)), Number(e.lngLat.lat.toFixed(6))])
+        return
+      }
+      if (this.inspectionActive) return
       const hotspot = map.queryRenderedFeatures(e.point, { layers: ['event-hotspot', LAYER.fireCore] })[0]
       if (hotspot?.properties?.id != null) {
         this.clearHover()
@@ -152,7 +164,7 @@ export class FireMap {
   }
 
   private handleHover(point: { x: number; y: number }) {
-    if (this.draw) return
+    if (this.draw || this.inspectionPicking) return
     const map = this.map
     const hotspot = map.queryRenderedFeatures([point.x, point.y] as [number, number], { layers: HOTSPOT_LAYERS })[0]
     const burn = hotspot ? undefined : map.queryRenderedFeatures([point.x, point.y] as [number, number], { layers: BURN_LAYERS })[0]
@@ -239,6 +251,23 @@ export class FireMap {
     })
   }
 
+  setInspection(picking: boolean, site: Coordinates | null, access: Coordinates | null, active: boolean) {
+    this.inspectionPicking = picking
+    this.inspectionActive = active
+    this.map.getCanvas().style.cursor = picking ? 'crosshair' : ''
+    this.clearHover()
+    for (const marker of this.inspectionMarkers) marker.remove()
+    this.inspectionMarkers = []
+    for (const [point, label] of [[site, '1'], [access, '2']] as const) {
+      if (!point) continue
+      const element = document.createElement('div')
+      element.className = 'inspection-marker'
+      element.textContent = label
+      element.setAttribute('aria-label', label === '1' ? 'Место осмотра' : 'Место остановки')
+      this.inspectionMarkers.push(new Marker({ element }).setLngLat(point).addTo(this.map))
+    }
+  }
+
   setSources(collection: FeatureCollection, visible: boolean) {
     this.geojson(SRC.sources).setData(collection)
     this.map.setLayoutProperty(LAYER.sources, 'visibility', visible ? 'visible' : 'none')
@@ -272,7 +301,9 @@ export class FireMap {
   }
 
   async setTheme(theme: MapTheme, background: string) {
+    const version = ++this.themeVersion
     const next = await loadBaseStyle(theme, background)
+    if (this.destroyed || version !== this.themeVersion) return
     this.map.setStyle(next, {
       transformStyle: (previous, style) => {
         if (!previous) return style
@@ -377,6 +408,7 @@ export class FireMap {
   }
 
   destroy() {
+    this.destroyed = true
     this.pulse.kill()
     this.stopDraw()
     this.map.remove()

@@ -1,4 +1,5 @@
 import type { FeatureCollection, Point } from 'geojson'
+import type { Inspection, InspectionInput } from './inspections'
 import type {
   AlertItem,
   FireEventDetail,
@@ -52,6 +53,9 @@ export interface QueryParams {
 }
 
 export const api = {
+  createInspection: (body: InspectionInput) => post<Inspection>(`${BASE}/inspections`, body),
+  inspections: (eventId: string, signal?: AbortSignal) => request<{ items: Inspection[] }>(`${BASE}/inspections?${new URLSearchParams({ event_id: eventId })}`, { signal }),
+  sharedInspection: (token: string) => request<Inspection>(`${BASE}/inspections/shared/${encodeURIComponent(token)}`),
   events: (params: QueryParams, status: FireEventStatus | 'all', offset = 0, signal?: AbortSignal) =>
     post<FireEventList>(`${BASE}/events?${new URLSearchParams({ status, offset: String(offset) })}`, params, signal),
   event: (id: string, signal?: AbortSignal) => request<FireEventDetail>(`${BASE}/events/${encodeURIComponent(id)}`, { signal }),

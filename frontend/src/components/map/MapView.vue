@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { effectScope, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { api } from '@/lib/api'
 import { dayNumber } from '@/lib/format'
 import type { SceneSummary } from '@/lib/types'
 import { useLiveStore } from '@/stores/live'
 import { AOI_REGION_ID, useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
+import { useInspectionStore } from '@/stores/inspection'
 import { FireMap } from './controller'
 
 const emit = defineEmits<{ ready: [] }>()
 const query = useQueryStore()
 const ui = useUiStore()
 const live = useLiveStore()
+const inspection = useInspectionStore()
 
 const container = ref<HTMLElement | null>(null)
 const fireMap = shallowRef<FireMap | null>(null)
 const compareScene = shallowRef<SceneSummary | null>(null)
+const mapEffects = effectScope()
+let disposed = false
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 // Длинный контур в адрес тайла не влезет: такой полигон оставляем без ограничения выдачи.
 const CLIP_MAX_POINTS = 400
@@ -52,15 +56,18 @@ onMounted(async () => {
   const instance = await FireMap.create(container.value!, ui.theme, themeBackground(), {
     onSceneClick: (sceneId) => (ui.passportTarget = { type: 'scene', id: sceneId }),
     onHotspotClick: (id) => (ui.passportTarget = { type: 'hotspot', id }),
+    onInspectionPick: (point) => inspection.pick(point),
     onDrawn: (geometry) => {
       ui.drawMode = 'idle'
       query.setCustomGeometry(geometry)
     },
   })
+  if (disposed) { instance.destroy(); return }
   fireMap.value = instance
   if (import.meta.env.DEV) (window as unknown as { __fireMap: FireMap }).__fireMap = instance
   emit('ready')
 
+  mapEffects.run(() => {
   watch(() => query.meta, (meta) => meta && instance.setStatic(meta.aoi, meta.regions), { immediate: true })
   watch(() => query.geometry, (geometry) => geometry && instance.setFocus(geometry), { immediate: true })
   watch(() => query.result, (result) => instance.setHotspots(result?.hotspots ?? (EMPTY as never)), { immediate: true })
@@ -74,24 +81,36 @@ onMounted(async () => {
   watch([() => query.regionId, () => query.geometry], () => instance.setClip(clipKey()), { immediate: true })
   watch(
     [() => ui.showSources, () => live.dataVersion],
-    async ([visible]) => instance.setSources(visible ? await api.sources() : EMPTY, visible),
+    async ([visible], _, onCleanup) => {
+      let stale = false
+      onCleanup(() => { stale = true })
+      const sources = visible ? await api.sources() : EMPTY
+      if (!stale && !disposed) instance.setSources(sources, visible)
+    },
     { immediate: true },
   )
   watch(() => ui.flyTarget, (target) => target && instance.flyTo(target.lon, target.lat, target.zoom))
   watch(() => ui.drawMode, (mode) => (mode === 'idle' ? instance.stopDraw() : void instance.startDraw(mode)))
   watch(() => ui.passport, (event) => instance.showEvent(event), { immediate: true })
+  watch([() => inspection.picking, () => inspection.site, () => inspection.access, () => inspection.event],
+    ([picking, site, access, event]) => instance.setInspection(!!picking, site, access, !!event), { immediate: true })
   watch(
     () => ui.compareSceneId,
-    async (sceneId) => {
-      compareScene.value = sceneId ? await api.scene(sceneId) : null
+    async (sceneId, _, onCleanup) => {
+      let stale = false
+      onCleanup(() => { stale = true })
+      const scene = sceneId ? await api.scene(sceneId) : null
+      if (stale || disposed) return
+      compareScene.value = scene
       instance.showScene(compareScene.value, compareScene.value?.kind === 'bs' ? 'rgb_post' : 'thermal')
       if (!sceneId && ui.passport) instance.showEvent(ui.passport)
       else if (!sceneId && query.geometry) instance.setFocus(query.geometry)
     },
   )
+  })
 })
 
-onBeforeUnmount(() => fireMap.value?.destroy())
+onBeforeUnmount(() => { disposed = true; mapEffects.stop(); fireMap.value?.destroy() })
 </script>
 
 <template>

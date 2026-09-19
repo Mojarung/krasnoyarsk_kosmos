@@ -156,13 +156,21 @@ test('UI: map hotspot click opens its real passport and restores map layers', as
   const ids = detail.map.features.filter(f => f.geometry.type === 'Point').map(f => f.properties!.id)
   const findPoint = () => page.evaluate(wanted => {
     const map = window.__fireMap!.map
-    const feature = map.queryRenderedFeatures({ layers: ['fire-core'] }).find(f => wanted.includes(f.properties.id))
-    if (!feature || feature.geometry.type !== 'Point') return null
-    const p = map.project(feature.geometry.coordinates as [number, number])
-    return { x: p.x, y: p.y }
+    for (const feature of map.queryRenderedFeatures({ layers: ['fire-core'] })) {
+      if (!wanted.includes(feature.properties.id) || feature.geometry.type !== 'Point') continue
+      const p = map.project(feature.geometry.coordinates as [number, number])
+      // Rendered GeoJSON coordinates are tile-quantized: verify the actual hit pixel.
+      for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) {
+        const x = Math.round(p.x + dx), y = Math.round(p.y + dy)
+        if (y < 150 || document.elementFromPoint(x, y) !== map.getCanvas()) continue
+        if (map.queryRenderedFeatures([x, y], { layers: ['fire-core'] }).some(f => wanted.includes(f.properties.id))) return { x, y }
+      }
+    }
+    return null
   }, ids)
   await expect.poll(findPoint).not.toBeNull()
   const screen = await findPoint()
+  await page.mouse.move(screen!.x, screen!.y)
   await page.mouse.click(screen!.x, screen!.y)
   await expect(page.getByRole('heading', { name: 'Паспорт пожара', exact: true })).toBeVisible()
   await expect(page.getByText(id, { exact: true })).toBeVisible()

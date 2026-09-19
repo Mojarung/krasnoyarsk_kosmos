@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { gsap } from 'gsap'
+import { useEventListener } from '@vueuse/core'
 import { defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import MorphLoader from '@/components/common/MorphLoader.vue'
 import AlertToast from '@/components/panels/AlertToast.vue'
@@ -11,15 +12,23 @@ import { useLiveStore } from '@/stores/live'
 import { useQueryStore } from '@/stores/query'
 import { APP_NAME } from '@/lib/brand'
 import { useUiStore } from '@/stores/ui'
+import { useInspectionStore } from '@/stores/inspection'
 
 const MapView = defineAsyncComponent(() => import('@/components/map/MapView.vue'))
 const PipelineDrawer = defineAsyncComponent(() => import('@/components/panels/PipelineDrawer.vue'))
 const SceneCompare = defineAsyncComponent(() => import('@/components/panels/SceneCompare.vue'))
 const FirePassport = defineAsyncComponent(() => import('@/components/panels/FirePassport.vue'))
+const InspectionPlanner = defineAsyncComponent(() => import('@/components/panels/InspectionPlanner.vue'))
+const SharedInspection = defineAsyncComponent(() => import('@/components/panels/SharedInspection.vue'))
+const sharedToken = ref(new URLSearchParams(window.location.hash.slice(1)).get('inspection'))
+useEventListener(window, 'hashchange', () => {
+  sharedToken.value = new URLSearchParams(window.location.hash.slice(1)).get('inspection')
+})
 
 const query = useQueryStore()
 const live = useLiveStore()
 const ui = useUiStore()
+const inspection = useInspectionStore()
 
 const mapReady = ref(false)
 const booted = ref(false)
@@ -30,6 +39,7 @@ const mapView = ref<{ setSceneQuicklook: (name: string) => void } | null>(null)
 const pipelineMounted = ref(false)
 
 async function boot() {
+  if (sharedToken.value) return
   bootError.value = null
   try {
     await query.bootstrap()
@@ -77,10 +87,17 @@ watch(
 )
 
 onMounted(boot)
+watch(sharedToken, (token) => {
+  mapReady.value = false
+  booted.value = false
+  inspection.close()
+  if (!token) void boot()
+})
 </script>
 
 <template>
-  <main class="relative h-full overflow-hidden bg-background">
+  <SharedInspection v-if="sharedToken" :key="sharedToken" :token="sharedToken" />
+  <main v-else class="relative h-full overflow-hidden bg-background">
     <MapView ref="mapView" @ready="mapReady = true" />
 
     <div ref="chrome" class="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3 sm:p-4">
@@ -105,7 +122,17 @@ onMounted(boot)
     </div>
 
     <div v-if="ui.passportTarget" v-show="!ui.compareSceneId" class="pointer-events-none absolute bottom-8 right-3 top-20 z-10 flex justify-end sm:right-4 max-sm:bottom-7 max-sm:left-3 max-sm:top-[30dvh]">
-      <FirePassport class="pointer-events-auto" />
+      <FirePassport v-show="!inspection.event" class="pointer-events-auto" />
+    </div>
+
+    <div v-if="inspection.event" v-show="!inspection.picking" class="pointer-events-none absolute bottom-8 right-3 top-20 z-20 flex items-start justify-end sm:right-4 max-sm:bottom-7 max-sm:left-3 max-sm:top-[42dvh]">
+      <InspectionPlanner class="pointer-events-auto" />
+    </div>
+    <div v-if="inspection.picking" class="pointer-events-none absolute inset-x-3 bottom-8 z-30 flex justify-center">
+      <div class="panel pointer-events-auto max-w-md px-5 py-4">
+        <p class="text-sm font-semibold">{{ inspection.picking === 'site' ? '1 · Нажмите на участок гари' : '2 · Выберите место остановки' }}</p>
+        <button class="mt-3 rounded-full bg-secondary px-4 py-2 text-xs focus-visible:ring-2 focus-visible:ring-ring" @click="inspection.picking = null">Отменить выбор точки</button>
+      </div>
     </div>
 
     <div class="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center">

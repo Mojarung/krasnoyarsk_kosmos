@@ -3,6 +3,9 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Crosshair, Download, X 
 import { onKeyStroke } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import MorphLoader from '@/components/common/MorphLoader.vue'
+import YandexMapsLink from '@/components/common/YandexMapsLink.vue'
+import { useInspectionStore } from '@/stores/inspection'
+import { PURPOSES, type Inspection } from '@/lib/inspections'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { fmt, plural } from '@/lib/format'
@@ -14,6 +17,22 @@ import { useUiStore } from '@/stores/ui'
 const ui = useUiStore()
 const query = useQueryStore()
 const live = useLiveStore()
+const inspection = useInspectionStore()
+const tasks = shallowRef<Inspection[]>([])
+const tasksError = ref('')
+let taskController: AbortController | null = null
+async function loadTasks() {
+  taskController?.abort()
+  taskController = new AbortController()
+  const signal = taskController.signal
+  const eventId = ui.passport?.id
+  tasks.value = []; tasksError.value = ''
+  if (!eventId) return
+  try { const result = await api.inspections(eventId, signal); if (!signal.aborted) tasks.value = result.items }
+  catch { if (!signal.aborted) tasksError.value = 'Не удалось загрузить задания' }
+}
+watch(() => ui.passport?.id, loadTasks)
+watch(() => inspection.event, (value) => { if (!value) void loadTasks() })
 const list = shallowRef<FireEventList | null>(null)
 const loading = ref(false)
 const error = ref('')
@@ -87,12 +106,12 @@ watch(() => query.params, () => {
 })
 watch(() => live.dataVersion, load)
 onKeyStroke('Escape', (e) => {
-  if (ui.compareSceneId || ui.pipelineOpen) return
+  if (ui.compareSceneId || ui.pipelineOpen || inspection.event) return
   e.preventDefault()
   if (isList.value) close()
   else back()
 })
-onBeforeUnmount(() => { generation++; controller?.abort(); ui.passport = null })
+onBeforeUnmount(() => { generation++; controller?.abort(); taskController?.abort(); ui.passport = null })
 </script>
 
 <template>
@@ -161,6 +180,14 @@ onBeforeUnmount(() => { generation++; controller?.abort(); ui.passport = null })
           <Button size="sm" variant="ghost" @click="download"><Download />Скачать JSON</Button>
         </div>
         <p class="mt-2 text-xs leading-relaxed text-muted-foreground">{{ detail.scope_note }}</p>
+        <YandexMapsLink class="mt-4" :bounds="detail.bbox" place="Место наблюдений из паспорта" />
+
+        <section v-if="detail.burn" class="mt-5 border-t pt-4" aria-label="Осмотры участка">
+          <h3 class="text-sm font-semibold">Проверить на месте</h3>
+          <Button class="mt-3 w-full" variant="tonal" @click="inspection.start(detail)">Запланировать осмотр</Button>
+          <p v-if="tasksError" class="mt-2 text-xs" role="alert">{{ tasksError }} <button class="underline" @click="loadTasks">Повторить загрузку заданий</button></p>
+          <button v-for="task in tasks" :key="task.id" type="button" class="mt-2 flex w-full items-center justify-between gap-3 rounded-xl bg-surface-2 p-3 text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="inspection.start(detail, task)"><span>{{ PURPOSES[task.purpose] }}<span class="mt-1 block text-muted-foreground">{{ fmt.dateTimeUtc(task.created_at) }}</span></span><ChevronRight class="size-4 shrink-0" /></button>
+        </section>
 
         <section class="mt-5" aria-label="История наблюдений">
           <h3 class="text-sm font-semibold">История наблюдений</h3>

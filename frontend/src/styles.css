@@ -3,6 +3,20 @@
 @import "@fontsource-variable/roboto-flex/wght.css";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
+.inspection-marker {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 3px solid var(--surface-1);
+  box-shadow: 0 2px 12px #0006;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -250,6 +264,9 @@
 }
 .maplibregl-popup-tip {
   display: none;
+}
+.map-hover-tooltip .maplibregl-popup-content {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
