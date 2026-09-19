@@ -24,12 +24,32 @@ function ensureBubble(): HTMLElement {
 function place(target: HTMLElement) {
   const tip = ensureBubble()
   const rect = target.getBoundingClientRect()
-  const size = tip.getBoundingClientRect()
-  const above = rect.top - size.height - GAP_PX
-  const top = above >= EDGE_PX ? above : rect.bottom + GAP_PX
-  const left = Math.min(Math.max(rect.left + rect.width / 2 - size.width / 2, EDGE_PX), window.innerWidth - size.width - EDGE_PX)
+  /*
+   * Размер берём из offsetWidth/offsetHeight, а не из getBoundingClientRect:
+   * закрытая подсказка уменьшена `scale: .92`, и прямоугольник возвращается
+   * уменьшенным — центрирование считалось по чужой ширине и уезжало.
+   */
+  const width = tip.offsetWidth
+  const height = tip.offsetHeight
+
+  const above = rect.top - height - GAP_PX
+  const fitsAbove = above >= EDGE_PX
+  const top = fitsAbove ? above : rect.bottom + GAP_PX
+
+  const maxLeft = Math.max(EDGE_PX, window.innerWidth - width - EDGE_PX)
+  let left = Math.min(Math.max(rect.left + rect.width / 2 - width / 2, EDGE_PX), maxLeft)
+
+  /*
+   * У элемента в самом углу центрирование упирается в край экрана, и подсказка
+   * уезжает в сторону настолько, что перестаёт пересекаться со своим элементом —
+   * выглядит как оторванная плашка над чужим контролом. Тогда прижимаем её к
+   * ближнему краю элемента, чтобы связь читалась.
+   */
+  if (left + width < rect.right) left = Math.min(Math.max(rect.right - width, EDGE_PX), maxLeft)
+  else if (left > rect.left) left = Math.min(Math.max(rect.left, EDGE_PX), maxLeft)
+
   tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`
-  tip.dataset.side = above >= EDGE_PX ? 'top' : 'bottom'
+  tip.dataset.side = fitsAbove ? 'top' : 'bottom'
 }
 
 function show(target: HTMLElement) {

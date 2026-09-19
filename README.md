@@ -4,7 +4,14 @@
 
 ## Запуск сервиса
 
-Нужен Docker с Compose. Выданный набор чипов положите в `DATA/fire-train-renamed/train` (внутри каталоги `af/` и `bs/`), другой путь задаётся переменной `DATA_PATH`.
+Нужен Docker с Compose. Выданный архив распакуйте в `DATA/`:
+
+```bash
+unzip "Мониторинг DATA.zip" -d DATA/
+tar -xf "DATA/Мониторинг DATA/fire-train-renamed.tar" -C DATA/
+```
+
+Получится `DATA/train/` с каталогами `af/` и `bs/` внутри — это и есть путь по умолчанию. Другая раскладка задаётся переменной `DATA_PATH`.
 
 ```bash
 docker compose up --build
@@ -138,10 +145,12 @@ uv run python validate_submission.py --submission submission.csv --template DATA
 ## Структура входных данных
 
 ```
-DATA/fire-train-renamed/train/
-  af/  meta.csv  viirs/*_VIIRS_I1-I5.tif  _aux/*_AUX.tif  masks/*_MASK.tif
-  bs/  meta.csv  sentinel2_pre/  sentinel2_post/  sentinel1_pre/  sentinel1_post/  _aux/  masks/
+DATA/train/
+  af/  meta.csv  viirs/*_VIIRS_I1-I5.tif  aux/*_AUX.tif  masks/*_MASK.tif
+  bs/  meta.csv  sentinel2_pre/  sentinel2_post/  sentinel1_pre/  sentinel1_post/  aux/  masks/
 ```
+
+Вспомогательный растр читается и из `aux/`, и из `_aux/` — в разных сборках набора каталог назывался по-разному.
 
 Геопривязка берётся из самих GeoTIFF. Чип без CRS (тестовый, обезличенный) сервис отклонит с кодом 422: положить его на карту нельзя. Маски необязательны, с ними считается качество на эталоне.
 
