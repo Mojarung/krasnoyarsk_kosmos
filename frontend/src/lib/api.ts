@@ -5,11 +5,13 @@ import type {
   FireEventList,
   FireEventStatus,
   AreaGeometry,
+  AreaSuggestion,
   Meta,
   PipelineMetrics,
   Profile,
   Quality,
   QueryResult,
+  ResponsePlan,
   SceneSummary,
   TimelineDay,
   Zone,
@@ -70,6 +72,10 @@ export const api = {
   pipelineMetrics: () => request<PipelineMetrics>(`${BASE}/metrics/pipeline`),
   quality: () => request<Quality | null>(`${BASE}/metrics/quality`),
   profile: (params: QueryParams, signal?: AbortSignal) => post<Profile>(`${BASE}/profile`, params, signal),
+  responsePlan: (params: QueryParams, signal?: AbortSignal) => post<ResponsePlan>(`${BASE}/response-plan`, params, signal),
+  suggestArea: (mode: 'random' | 'fire') => request<AreaSuggestion>(`${BASE}/acquisitions/suggest?mode=${mode}`),
+  acquire: (geometry: AreaGeometry, date_pre: string, date_post: string) =>
+    post<{ jobs: { job_id: string; scene_id: string }[] }>(`${BASE}/acquisitions`, { geometry, date_pre, date_post }),
   zones: () => request<Zone[]>(`${BASE}/zones`),
   createZone: (name: string, geometry: AreaGeometry, webhook_url: string | null) =>
     post<Zone>(`${BASE}/zones`, { name, geometry, webhook_url }),
@@ -116,7 +122,7 @@ export interface AgentCardData {
 export type AgentAction =
   | { type: 'set_query'; region_id: string; geometry: AreaGeometry; date_from: string; date_to: string }
   | { type: 'focus'; lon: number; lat: number; zoom: number; scene_id: string }
-  | { type: 'open_tab'; tab: 'report' | 'metrics' | 'restoration' | 'technogenic' }
+  | { type: 'open_tab'; tab: 'report' | 'metrics' | 'restoration' | 'technogenic' | 'response' }
 
 export type AgentEvent =
   | { event: 'token'; data: { text: string } }

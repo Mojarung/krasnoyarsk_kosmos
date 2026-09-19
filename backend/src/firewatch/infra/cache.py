@@ -29,11 +29,20 @@ async def bump_data_version() -> None:
 
 
 async def cached[T](
-    prefix: str, payload: Any, producer: Callable[[], Awaitable[T]], *, binary: bool = False
+    prefix: str,
+    payload: Any,
+    producer: Callable[[], Awaitable[T]],
+    *,
+    binary: bool = False,
+    versioned: bool = True,
+    ttl: int | None = None,
 ) -> T:
-    """Кеш поверх Redis. Версия данных входит в ключ, поэтому после приёма новой сцены кеш не отдаёт старое."""
+    """Кеш поверх Redis. Версия данных входит в ключ, поэтому после приёма новой сцены кеш не отдаёт старое.
+
+    versioned=False нужен внешним справочникам: дороги и архив погоды от наших сцен не зависят.
+    """
     try:
-        version = (await redis.get(DATA_VERSION_KEY) or b"0").decode()
+        version = (await redis.get(DATA_VERSION_KEY) or b"0").decode() if versioned else "static"
         key = make_key(prefix, [version, payload])
         hit = await redis.get(key)
     except RedisError:
@@ -44,10 +53,20 @@ async def cached[T](
     value = await producer()
     raw = value if binary else json.dumps(value, default=str)
     try:
-        await redis.set(key, raw, ex=get_settings().cache_ttl_seconds)
+        await redis.set(key, raw, ex=ttl or get_settings().cache_ttl_seconds)
     except RedisError:
         log.warning("Не удалось записать в кеш", exc_info=True)
     return value
+
+
+async def peek(prefix: str, payload: Any) -> Any | None:
+    """Чтение без версии данных и без расчёта при промахе. RedisError уходит наверх: вызывающий решает, что делать без кеша."""
+    hit = await redis.get(make_key(prefix, ["static", payload]))
+    return None if hit is None else json.loads(hit)
+
+
+async def put(prefix: str, payload: Any, value: Any, ttl: int) -> None:
+    await redis.set(make_key(prefix, ["static", payload]), json.dumps(value, default=str), ex=ttl)
 
 
 async def publish_event(event: str, data: dict[str, Any]) -> None:

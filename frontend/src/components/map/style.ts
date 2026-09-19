@@ -23,6 +23,7 @@ export const SRC = {
   hotspots: 'hotspots',
   sources: 'persistent-sources',
   zones: 'zones',
+  spread: 'spread-forecast',
   scene: 'scene-overlay',
   event: 'event-overlay',
 } as const
@@ -248,6 +249,33 @@ export function overlayLayers(): AddLayerObject[] {
         'circle-color': ['interpolate', ['linear'], ['get', 'bt_i4'], 320, '#f7774a', 345, '#ffb703', 367, '#fff3b0'],
         'circle-stroke-color': '#2b0d00',
         'circle-stroke-width': 0.6,
+      },
+    },
+    // Прогноз фронта: три вложенных эллипса, ближний горизонт ярче.
+    {
+      id: 'spread-fill',
+      type: 'fill',
+      source: SRC.spread,
+      filter: ['==', ['geometry-type'], 'Polygon'],
+      paint: { 'fill-color': '#ff6b35', 'fill-opacity': ['match', ['get', 'hours'], 1, 0.3, 3, 0.18, 0.1] },
+    },
+    {
+      id: 'spread-line',
+      type: 'line',
+      source: SRC.spread,
+      filter: ['==', ['geometry-type'], 'Polygon'],
+      paint: { 'line-color': '#ffb703', 'line-width': 1.4, 'line-dasharray': [3, 2] },
+    },
+    {
+      id: 'spread-places',
+      type: 'circle',
+      source: SRC.spread,
+      filter: ['==', ['geometry-type'], 'Point'],
+      paint: {
+        'circle-radius': 5,
+        'circle-color': ['match', ['get', 'role'], 'station', '#6ec6ff', '#ffffff'],
+        'circle-stroke-color': '#2b0d00',
+        'circle-stroke-width': 1.5,
       },
     },
     { id: 'zones-line', type: 'line', source: SRC.zones, paint: { 'line-color': '#c1c39c', 'line-width': 1.6, 'line-dasharray': [2, 1.5] } },

@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { api, ApiError } from '@/lib/api'
-import type { AreaGeometry, Meta, Profile, QueryResult, TimelineDay } from '@/lib/types'
+import type { AreaGeometry, Meta, Profile, QueryResult, ResponsePlan, TimelineDay } from '@/lib/types'
 
 export const AOI_REGION_ID = 'aoi'
 const FALLBACK_RANGE = { from: '2019-04-01', to: '2024-11-30' }
+const RESPONSE_POLL_MS = 7000
+const RESPONSE_POLL_LIMIT = 25
 
 export const useQueryStore = defineStore('query', () => {
   const meta = shallowRef<Meta | null>(null)
@@ -17,8 +19,11 @@ export const useQueryStore = defineStore('query', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const profile = shallowRef<Profile | null>(null)
+  const responsePlan = shallowRef<ResponsePlan | null>(null)
   let controller: AbortController | null = null
   let profileController: AbortController | null = null
+  let responseController: AbortController | null = null
+  let responseTimer: ReturnType<typeof setTimeout> | undefined
 
   const report = computed(() => result.value?.report ?? null)
   const params = computed(() =>
@@ -53,6 +58,8 @@ export const useQueryStore = defineStore('query', () => {
     loading.value = true
     error.value = null
     profile.value = null
+    responsePlan.value = null
+    clearTimeout(responseTimer)
     try {
       result.value = await api.query(params.value, controller.signal)
     } catch (e) {
@@ -70,6 +77,25 @@ export const useQueryStore = defineStore('query', () => {
     profileController = new AbortController()
     try {
       profile.value = await api.profile(params.value, profileController.signal)
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      error.value = e instanceof ApiError ? e.message : 'Сервис недоступен'
+    }
+  }
+
+  /** План реагирования ходит во внешние справочники и на холодном кеше считается десятки секунд, поэтому грузится по требованию. */
+  async function loadResponsePlan(attempt = 0) {
+    if (!params.value) return
+    clearTimeout(responseTimer)
+    responseController?.abort()
+    responseController = new AbortController()
+    try {
+      const plan = await api.responsePlan(params.value, responseController.signal)
+      responsePlan.value = plan
+      // Сёла, дороги и пожарные части сервер дозапрашивает у OpenStreetMap в фоне.
+      if (plan.external.osm === 'pending' && attempt < RESPONSE_POLL_LIMIT) {
+        responseTimer = setTimeout(() => void loadResponsePlan(attempt + 1), RESPONSE_POLL_MS)
+      }
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
       error.value = e instanceof ApiError ? e.message : 'Сервис недоступен'
@@ -106,7 +132,7 @@ export const useQueryStore = defineStore('query', () => {
 
   return {
     meta, timeline, geometry, regionId, dateFrom, dateTo, result, report, params, loading, error, regionName,
-    profile, loadProfile,
+    profile, loadProfile, responsePlan, loadResponsePlan,
     bootstrap, refreshMeta, run, selectRegion, setCustomGeometry, setPeriod, apply,
   }
 })

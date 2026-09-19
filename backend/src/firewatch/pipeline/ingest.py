@@ -26,8 +26,9 @@ from firewatch.pipeline.persistence import mark_dirty, refresh_persistent_source
 
 log = logging.getLogger(__name__)
 
-STAGES = ("queued", "fetch", "inference", "previews", "publish", "done")
+STAGES = ("queued", "acquire", "fetch", "inference", "previews", "publish", "done")
 STAGE_MESSAGES = {
+    "acquire": "Ищем и скачиваем снимки Sentinel-2 по выбранной области",
     "fetch": "Забираем растры из S3",
     "inference": "Модель размечает пиксели, маски становятся контурами с площадью в UTM",
     "previews": "Сохраняем превью «до/после» в S3",
@@ -40,11 +41,21 @@ _af_model = load_af_model()
 _bs_model = load_bs_model()
 
 
-async def _report(
-    job_id: uuid.UUID, scene_id: str, stage: str, *, status: str = "running", error: str | None = None
+# Статистика сцены переписывается при каждой обработке. Эти ключи описывают происхождение данных и переживают её.
+PRESERVED_STATS = ("acquisition",)
+
+
+async def report(
+    job_id: uuid.UUID,
+    scene_id: str,
+    stage: str,
+    *,
+    status: str = "running",
+    error: str | None = None,
+    message: str | None = None,
 ) -> None:
     progress = STAGES.index(stage) / (len(STAGES) - 1) if stage in STAGES else 0.0
-    message = error or STAGE_MESSAGES.get(stage, "")
+    message = error or message or STAGE_MESSAGES.get(stage, "")
     async with SessionFactory() as session:
         await session.execute(
             update(Job)
@@ -177,7 +188,7 @@ async def process_scene(job_id: uuid.UUID, scene_id: str) -> None:
         async with SessionFactory() as session:
             await session.execute(update(Scene).where(Scene.id == scene_id).values(status="failed"))
             await session.commit()
-        await _report(job_id, scene_id, "failed", status="failed", error=str(exc))
+        await report(job_id, scene_id, "failed", status="failed", error=str(exc))
 
 
 async def _process(job_id: uuid.UUID, scene_id: str) -> None:
@@ -192,26 +203,29 @@ async def _process(job_id: uuid.UUID, scene_id: str) -> None:
         await session.commit()
 
     with tempfile.TemporaryDirectory(prefix="fw_") as tmp:
-        await _report(job_id, scene_id, "fetch")
+        await report(job_id, scene_id, "fetch")
         paths = await asyncio.to_thread(_download, scene.files, Path(tmp))
 
-        await _report(job_id, scene_id, "inference")
+        await report(job_id, scene_id, "inference")
         if scene.kind == "af":
             result: AfResult | BsResult = await asyncio.to_thread(compute_af, scene_id, paths, _af_model)
         else:
             result = await asyncio.to_thread(compute_bs, scene_id, paths, _bs_model, settings.min_polygon_px)
 
-    await _report(job_id, scene_id, "previews")
+    await report(job_id, scene_id, "previews")
     quicklooks = await asyncio.to_thread(_upload_quicklooks, scene_id, result.quicklooks)
 
-    await _report(job_id, scene_id, "publish")
+    await report(job_id, scene_id, "publish")
     async with SessionFactory() as session:
         scene = await session.get(Scene, scene_id)
         assert scene is not None
         for key, value in _scene_geometry(result.georef).items():
             setattr(scene, key, value)
         scene.model_name = result.model_name
-        scene.stats = result.stats | {"duration_ms": round((time.perf_counter() - started) * 1000)}
+        preserved = {key: scene.stats[key] for key in PRESERVED_STATS if key in (scene.stats or {})}
+        scene.stats = (
+            preserved | result.stats | {"duration_ms": round((time.perf_counter() - started) * 1000)}
+        )
         scene.quicklooks = quicklooks
         scene.status = "ready"
         scene.processed_at = datetime.now(UTC)
@@ -231,7 +245,7 @@ async def _process(job_id: uuid.UUID, scene_id: str) -> None:
 
     await bump_data_version()
     await deliver_alerts(alerts)
-    await _report(job_id, scene_id, "done", status="done")
+    await report(job_id, scene_id, "done", status="done")
     await publish_event(
         "scene", {"id": scene_id, "kind": scene.kind, "status": "ready", "stats": result.stats}
     )

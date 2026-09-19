@@ -31,6 +31,26 @@ class Settings(BaseSettings):
     persistent_radius_m: int = 400
     dispatch_cluster_m: float = 1500.0
 
+    response_window_days: int = 3
+    response_max_clusters: int = 8
+    response_osm_clusters: int = 4
+    response_growth_radius_m: float = 3000.0
+    external_lookups: bool = True
+    external_timeout_seconds: float = 30.0
+    external_cache_seconds: int = 7 * 24 * 3600
+    overpass_urls: list[str] = [
+        "https://overpass-api.de/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+    ]
+    open_meteo_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
+    open_meteo_forecast_url: str = "https://api.open-meteo.com/v1/forecast"
+
+    stac_url: str = "https://earth-search.aws.element84.com/v1"
+    live_max_chips: int = 4
+    live_search_days: int = 12
+    live_candidates: int = 4
+
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""

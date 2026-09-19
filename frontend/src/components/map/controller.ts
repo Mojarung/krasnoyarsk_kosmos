@@ -2,7 +2,7 @@ import { gsap } from 'gsap'
 import { type ExpressionSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection } from 'geojson'
-import type { AreaGeometry, FireEventDetail, HotspotCollection, HotspotProps, SceneSummary, Zone } from '@/lib/types'
+import type { AreaGeometry, FireEventDetail, HotspotCollection, HotspotProps, ResponseCard, SceneSummary, Zone } from '@/lib/types'
 import { DEFAULT_FILTERS, type DisplayFilters } from '@/stores/ui'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
@@ -92,7 +92,7 @@ export class FireMap {
   private setup() {
     const map = this.map
     const colors = this.eventColors()
-    for (const id of [SRC.aoi, SRC.regions, SRC.focus, SRC.query, SRC.hotspots, SRC.sources, SRC.zones, SRC.event]) {
+    for (const id of [SRC.aoi, SRC.regions, SRC.focus, SRC.query, SRC.hotspots, SRC.sources, SRC.zones, SRC.event, SRC.spread]) {
       map.addSource(id, { type: 'geojson', data: EMPTY })
     }
     map.addSource(SRC.burns, { type: 'vector', tiles: [this.tileUrl(0)], minzoom: 3, maxzoom: 11 })
@@ -249,6 +249,28 @@ export class FireMap {
       type: 'FeatureCollection',
       features: zones.map((z) => ({ type: 'Feature', properties: { name: z.name }, geometry: z.geometry })),
     })
+  }
+
+  /** Прогноз фронта выбранного очага: эллипсы на 1, 3 и 6 часов, сёла под угрозой и ближайшая пожарная часть. */
+  setSpread(card: ResponseCard | null) {
+    if (!card) {
+      this.geojson(SRC.spread).setData(EMPTY)
+      return
+    }
+    const point = (lon: number, lat: number, role: string, label: string): GeoJSON.Feature => ({
+      type: 'Feature',
+      properties: { role, label },
+      geometry: { type: 'Point', coordinates: [lon, lat] },
+    })
+    // Дальний горизонт рисуется первым, иначе он закроет ближние.
+    const ellipses = [...card.spread.ellipses].reverse().map((e): GeoJSON.Feature => ({ type: 'Feature', properties: { hours: e.hours }, geometry: e.geometry }))
+    const threats = (card.threats ?? []).filter((t) => t.horizon_h != null).map((t) => point(t.lon, t.lat, 'threat', t.name))
+    const station = card.arrival ? [point(card.arrival.lon, card.arrival.lat, 'station', card.arrival.station)] : []
+    this.geojson(SRC.spread).setData({ type: 'FeatureCollection', features: [...ellipses, ...threats, ...station] })
+
+    const bounds = new LngLatBounds([card.lon, card.lat], [card.lon, card.lat])
+    for (const e of card.spread.ellipses) for (const [lon, lat] of e.geometry.coordinates[0]) bounds.extend([lon, lat])
+    this.map.fitBounds(bounds, { padding: { left: 80, right: 480, top: 120, bottom: 200 }, maxZoom: 12, duration: 1600, essential: true })
   }
 
   setBasemap(basemap: 'dark' | 'satellite') {

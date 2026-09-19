@@ -5,7 +5,7 @@ import type { FireEventDetail, PassportTarget } from '@/lib/types'
 
 export type Basemap = 'dark' | 'satellite'
 export type DrawMode = 'idle' | 'polygon' | 'rectangle'
-export type InsightView = 'overview' | 'dynamics' | 'emissions' | 'profile' | 'restoration' | 'alarms'
+export type InsightView = 'overview' | 'response' | 'dynamics' | 'emissions' | 'profile' | 'restoration' | 'alarms'
 export type DayNight = 'all' | 'day' | 'night'
 
 export interface DisplayFilters {
@@ -38,6 +38,8 @@ export const useUiStore = defineStore('ui', () => {
   const playing = ref(false)
   const playhead = ref<number | null>(null)
   const flyTarget = shallowRef<{ lon: number; lat: number; zoom?: number } | null>(null)
+  /** Очаг, прогноз фронта которого показан на карте. */
+  const responseCardId = ref<string | null>(null)
   const filters = ref<DisplayFilters>({ ...DEFAULT_FILTERS })
   const activeFilterCount = computed(
     () =>
@@ -100,6 +102,6 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     theme, basemap, showFiltered, showSeverity, showSources, drawMode, insightTab, insightOpen, queryOpen,
-    pipelineOpen, compareSceneId, passportTarget, passport, playing, playhead, flyTarget, filters, activeFilterCount, toggleTheme, resetFilters,
+    pipelineOpen, compareSceneId, passportTarget, passport, playing, playhead, flyTarget, responseCardId, filters, activeFilterCount, toggleTheme, resetFilters,
   }
 })

@@ -77,6 +77,10 @@ onMounted(async () => {
     async ([visible]) => instance.setSources(visible ? await api.sources() : EMPTY, visible),
     { immediate: true },
   )
+  watch(
+    [() => ui.responseCardId, () => query.responsePlan],
+    ([cardId, plan]) => instance.setSpread(plan?.cards.find((card) => card.id === cardId) ?? null),
+  )
   watch(() => ui.flyTarget, (target) => target && instance.flyTo(target.lon, target.lat, target.zoom))
   watch(() => ui.drawMode, (mode) => (mode === 'idle' ? instance.stopDraw() : void instance.startDraw(mode)))
   watch(() => ui.passport, (event) => instance.showEvent(event), { immediate: true })

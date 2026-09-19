@@ -21,6 +21,7 @@ from firewatch.services.export import (
 )
 from firewatch.services.profile import build_profile
 from firewatch.services.report import build_report
+from firewatch.services.response_plan import build_response_plan
 from firewatch.services.tiles import warm_tiles
 
 router = APIRouter(prefix="/api/v1", tags=["Анализ территории"])
@@ -196,3 +197,18 @@ async def get_profile(query: GetQuery, session: Session) -> dict[str, Any]:
 @router.post("/profile", summary="Профиль территории по полигону")
 async def post_profile(body: QueryBody, session: Session) -> dict[str, Any]:
     return await _profile(session, body.to_query())
+
+
+# План не кешируется целиком: очаги считаются за доли секунды, а ветер и окружение кешируются по очагам.
+# Иначе в кеш попал бы план со статусом pending, пока OpenStreetMap ещё отвечает.
+@router.get(
+    "/response-plan",
+    summary="План реагирования по свежим очагам: приоритет, прогноз фронта, угрозы, способ тушения",
+)
+async def get_response_plan(query: GetQuery, session: Session) -> dict[str, Any]:
+    return await build_response_plan(session, query)
+
+
+@router.post("/response-plan", summary="План реагирования по полигону")
+async def post_response_plan(body: QueryBody, session: Session) -> dict[str, Any]:
+    return await build_response_plan(session, body.to_query())

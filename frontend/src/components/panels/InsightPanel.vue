@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, ChevronRight, History, LayoutDashboard, Maximize2, Minimize2, ShieldCheck, Sprout, Wind } from '@lucide/vue'
+import { BarChart3, ChevronRight, History, LayoutDashboard, Maximize2, Minimize2, ShieldCheck, Siren, Sprout, Wind } from '@lucide/vue'
 import { onKeyStroke } from '@vueuse/core'
 import { gsap } from 'gsap'
 import { type Component, computed, defineAsyncComponent, ref, watch } from 'vue'
@@ -18,6 +18,7 @@ const query = useQueryStore()
 const ui = useUiStore()
 
 const SECTIONS: { view: DetailView; title: string; icon: Component }[] = [
+  { view: 'response', title: 'Реагирование', icon: Siren },
   { view: 'dynamics', title: 'Динамика и статистика', icon: BarChart3 },
   { view: 'emissions', title: 'Выбросы в атмосферу', icon: Wind },
   { view: 'profile', title: 'Профиль территории', icon: History },
@@ -36,6 +37,7 @@ const NAV: { view: InsightView; title: string; icon: Component }[] = [
 ]
 const VIEWS = {
   overview: defineAsyncComponent(() => import('./tabs/OverviewTab.vue')),
+  response: defineAsyncComponent(() => import('./tabs/ResponseTab.vue')),
   dynamics: defineAsyncComponent(() => import('./tabs/DynamicsTab.vue')),
   emissions: defineAsyncComponent(() => import('./tabs/EmissionsTab.vue')),
   profile: defineAsyncComponent(() => import('./tabs/ProfileTab.vue')),

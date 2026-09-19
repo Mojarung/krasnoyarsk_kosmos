@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight, Crosshair } from '@lucide/vue'
+import { ChevronRight, Crosshair, Siren, X } from '@lucide/vue'
 import { computed } from 'vue'
 import AnimatedNumber from '@/components/common/AnimatedNumber.vue'
 import SparkBars from '@/components/common/SparkBars.vue'
@@ -32,6 +32,14 @@ const filtered = computed(() => hot.value.technogenic + hot.value.glint)
  * поэтому «Подробнее» не повторяется у каждого блока.
  */
 const rows = computed(() => [
+  {
+    key: 'response',
+    label: 'Что тушить первым',
+    value: '',
+    unit: '',
+    view: 'response' as InsightView,
+    hint: 'План реагирования по свежим очагам: приоритет, прогноз фронта, сёла под угрозой, способ тушения и ближайшая пожарная часть',
+  },
   {
     key: 'clusters',
     label: 'Очаги',
@@ -92,6 +100,12 @@ const rows = computed(() => [
         </div>
       </div>
     </section>
+
+    <div v-if="ui.responseCardId" class="flex items-center gap-2 rounded-full bg-primary-container py-1.5 pl-4 pr-1.5 text-xs text-on-primary-container">
+      <Siren class="size-3.5 shrink-0" />
+      <button type="button" class="min-w-0 flex-1 truncate text-left" @click="emit('open', 'response')">На карте прогноз фронта на 1, 3 и 6 часов · к плану</button>
+      <button v-tip="'Убрать прогноз с карты'" type="button" class="flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-black/15" aria-label="Убрать прогноз с карты" @click="ui.responseCardId = null"><X class="size-3.5" /></button>
+    </div>
 
     <!-- Три числа строками: одна линейка, один ритм, переход по самой строке. -->
     <div class="mt-5 border-t border-border/60">

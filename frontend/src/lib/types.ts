@@ -329,3 +329,63 @@ export interface PipelineMetrics {
   scenes_last_minute: number
   by_kind: Record<string, { scenes: number; mean_ms: number; p95_ms: number }>
 }
+
+export type ResponseLevel = 'critical' | 'high' | 'medium' | 'low'
+
+export interface ResponseThreat {
+  name: string
+  kind: string
+  lon: number
+  lat: number
+  distance_km: number
+  horizon_h: number | null
+}
+
+export interface ResponseCard {
+  id: string
+  day: string
+  last_seen: string
+  lon: number
+  lat: number
+  hotspots: number
+  prev_hotspots: number
+  growth: 'new' | 'doubling' | 'steady' | 'fading'
+  frp_mw: number | null
+  frp_max_mw: number | null
+  landcover: string
+  landcover_label: string
+  is_night: boolean
+  weather: { wind_ms: number | null; wind_dir_deg: number | null; rh2m: number | null; t2m_c: number | null }
+  priority: { score: number; level: ResponseLevel; label: string; parts: Record<string, number> }
+  spread: {
+    rate_kmh: number | null
+    heading_deg: number | null
+    ellipses: { hours: number; head_km: number; geometry: Polygon }[]
+  }
+  /** null - OpenStreetMap не ответил или очаг вне верхушки списка. */
+  threats: ResponseThreat[] | null
+  arrival: { station: string; lon: number; lat: number; distance_km: number; eta_min: number } | null
+  road_km: number | null
+  method: { key: string; label: string; resources: string[] }
+  steps: string[]
+}
+
+export interface ResponsePlan {
+  generated_at: string
+  window: { from: string | null; to: string | null; days: number }
+  fires_total: number
+  by_level: Record<ResponseLevel, number>
+  /** osm: pending - OpenStreetMap ещё отвечает в фоне, план стоит переспросить. */
+  external: { wind: boolean; osm: 'ready' | 'pending' | 'failed' | 'off' }
+  cards: ResponseCard[]
+  disclaimer: string
+  sources: string
+}
+
+export interface AreaSuggestion {
+  mode: 'random' | 'fire'
+  geometry: Polygon
+  date_pre: string
+  date_post: string
+  label: string
+}
