@@ -71,20 +71,51 @@ function show(target: HTMLElement) {
   tip.textContent = text
   place(target)
   tip.dataset.open = 'true'
+  window.addEventListener('pointermove', onMove, { capture: true, passive: true })
 }
 
 function hide() {
   window.clearTimeout(showTimer)
-  window.clearTimeout(hideTimer)
+  clearHideTimer()
   if (owner) closedAt = performance.now()
   owner = null
   pending = null
+  window.removeEventListener('pointermove', onMove, { capture: true })
   if (bubble) bubble.dataset.open = 'false'
+}
+
+function clearHideTimer() {
+  window.clearTimeout(hideTimer)
+  hideTimer = undefined
+}
+
+function scheduleHide() {
+  if (hideTimer === undefined) hideTimer = window.setTimeout(hide, HIDE_DELAY_MS)
+}
+
+function covers(rect: DOMRect, x: number, y: number, pad = 0): boolean {
+  return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad
+}
+
+/*
+ * Курсор на самой подсказке её не гасит: человек ведёт мышь к тексту, чтобы
+ * дочитать длинное пояснение. Плашка при этом остаётся сквозной
+ * (pointer-events: none), поэтому клик по тому, что под ней, не теряется —
+ * положение курсора считаем сами. Запас в зазор закрывает дорожку между
+ * элементом и плашкой, иначе подсказка мигала бы на полпути.
+ */
+function onMove(event: PointerEvent) {
+  if (!owner) return
+  const inside =
+    covers(owner.getBoundingClientRect(), event.clientX, event.clientY) ||
+    (bubble !== null && covers(bubble.getBoundingClientRect(), event.clientX, event.clientY, GAP_PX))
+  if (inside) clearHideTimer()
+  else scheduleHide()
 }
 
 function onEnter(event: Event) {
   const target = event.currentTarget as HTMLElement
-  window.clearTimeout(hideTimer)
+  clearHideTimer()
   if (owner === target) {
     pending = null
     return
@@ -106,9 +137,7 @@ function onFocus(event: Event) {
 function onLeave() {
   window.clearTimeout(showTimer)
   pending = null
-  if (!owner) return
-  window.clearTimeout(hideTimer)
-  hideTimer = window.setTimeout(hide, HIDE_DELAY_MS)
+  if (owner) scheduleHide()
 }
 
 /** Страховка: подсказка не должна пережить клик, прокрутку, Escape или уход со вкладки. */
