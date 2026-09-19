@@ -79,7 +79,7 @@ const activeYear = computed(() => {
 const isFullRange = computed(() => query.dateFrom === query.meta?.data.date_min && query.dateTo === query.meta?.data.date_max)
 const periodSummary = computed(() => (activeYear.value ? `сезон ${activeYear.value}` : isFullRange.value ? 'весь охват' : `${fmt.date(query.dateFrom)} - ${fmt.date(query.dateTo)}`))
 const layersSummary = computed(() =>
-  [ui.basemap === 'satellite' ? 'спутник' : 'схема', ui.showSeverity && 'гари', ui.showFiltered && 'отсеянные', ui.showSources && 'источники'].filter(Boolean).join(', '),
+  [ui.basemap === 'satellite' ? 'спутник' : 'схема', ui.showFires && 'пожары', ui.showSeverity && 'гари', ui.showFiltered && 'отсеянные', ui.showSources && 'источники'].filter(Boolean).join(', '),
 )
 
 function toggle(section: Section) {
@@ -147,6 +147,7 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
 
       <FoldSection title="Слои" :summary="layersSummary" :icon="Layers" :open="opened === 'layers'" @toggle="toggle('layers')">
         <div class="space-y-3 text-[13px]">
+          <label v-tip="'Термоточки природных пожаров: оранжевые точки на карте'" class="flex items-center justify-between gap-3">Природные пожары<Switch v-model="ui.showFires" /></label>
           <label v-tip="'Контуры гарей и полигоны трёх степеней поражения'" class="flex items-center justify-between gap-3">Гари и степени<Switch v-model="ui.showSeverity" /></label>
           <label v-tip="'Техногенные источники и блики, которые модель отсеяла. На карте это кольца, причина видна при наведении'" class="flex items-center justify-between gap-3">Отсеянные срабатывания<Switch v-model="ui.showFiltered" /></label>
           <label v-tip="'Факелы и печи, найденные по истории: горят почти в каждом пролёте из года в год'" class="flex items-center justify-between gap-3">Постоянные источники<Switch v-model="ui.showSources" /></label>

@@ -21,6 +21,7 @@ export const DEFAULT_FILTERS: DisplayFilters = { severities: [1, 2, 3], minConto
 export const useUiStore = defineStore('ui', () => {
   const theme = useStorage<'dark' | 'light'>('fw-theme', 'dark')
   const basemap = useStorage<Basemap>('fw-basemap', 'dark')
+  const showFires = ref(true)
   const showFiltered = ref(true)
   const showSeverity = ref(true)
   const showSources = ref(false)
@@ -101,7 +102,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   return {
-    theme, basemap, showFiltered, showSeverity, showSources, drawMode, insightTab, insightOpen, queryOpen,
+    theme, basemap, showFires, showFiltered, showSeverity, showSources, drawMode, insightTab, insightOpen, queryOpen,
     pipelineOpen, compareSceneId, passportTarget, passport, playing, playhead, flyTarget, responseCardId, filters, activeFilterCount, toggleTheme, resetFilters,
   }
 })

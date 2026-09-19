@@ -56,6 +56,7 @@ export class FireMap {
   private pulse = gsap.timeline({ paused: true, repeat: -1 })
   private draw: { stop: () => void } | null = null
   private window: TimeWindow = { fromDay: 0, toDay: 1e6, playheadTs: null }
+  private showFires = true
   private showFiltered = true
   private showSeverity = true
   private eventActive = false
@@ -237,10 +238,7 @@ export class FireMap {
   showEvent(event: FireEventDetail | null) {
     this.clearHover()
     this.eventActive = !!event
-    this.setLayerToggles(this.showFiltered, this.showSeverity)
-    for (const id of [LAYER.fireCore, LAYER.fireGlow, LAYER.firePulse, LAYER.filtered]) {
-      this.map.setLayoutProperty(id, 'visibility', event ? 'none' : 'visible')
-    }
+    this.applyVisibility()
     this.geojson(SRC.event).setData(event?.map ?? EMPTY)
     if (!event?.bbox) return
     const [west, south, east, north] = event.bbox
@@ -340,13 +338,25 @@ export class FireMap {
     })
   }
 
-  setLayerToggles(showFiltered: boolean, showSeverity: boolean) {
+  setLayerToggles(showFires: boolean, showFiltered: boolean, showSeverity: boolean) {
+    this.showFires = showFires
     this.showFiltered = showFiltered
     this.showSeverity = showSeverity
-    for (const id of [LAYER.severity, LAYER.burnFill, LAYER.burnLine, LAYER.burnCenters]) {
-      this.map.setLayoutProperty(id, 'visibility', showSeverity && !this.eventActive ? 'visible' : 'none')
-    }
+    this.applyVisibility()
     this.applyTime()
+  }
+
+  /* Паспорт пожара рисует собственные слои, поэтому обзорные на это время
+     гасятся целиком, независимо от переключателей слоёв. */
+  private applyVisibility() {
+    const shown = (on: boolean) => (on && !this.eventActive ? 'visible' : 'none')
+    for (const id of [LAYER.severity, LAYER.burnFill, LAYER.burnLine, LAYER.burnCenters]) {
+      this.map.setLayoutProperty(id, 'visibility', shown(this.showSeverity))
+    }
+    for (const id of [LAYER.fireGlow, LAYER.fireCore, LAYER.firePulse]) {
+      this.map.setLayoutProperty(id, 'visibility', shown(this.showFires))
+    }
+    this.map.setLayoutProperty(LAYER.filtered, 'visibility', shown(this.showFiltered))
   }
 
   setTimeWindow(next: TimeWindow) {

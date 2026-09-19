@@ -72,7 +72,7 @@ onMounted(async () => {
   watch(() => query.geometry, (geometry) => geometry && instance.setFocus(geometry), { immediate: true })
   watch(() => query.result, (result) => instance.setHotspots(result?.hotspots ?? (EMPTY as never)), { immediate: true })
   watch([() => query.dateFrom, () => query.dateTo, () => ui.playhead], syncTime, { immediate: true })
-  watch([() => ui.showFiltered, () => ui.showSeverity], ([filtered, severity]) => instance.setLayerToggles(filtered, severity), { immediate: true })
+  watch([() => ui.showFires, () => ui.showFiltered, () => ui.showSeverity], ([fires, filtered, severity]) => instance.setLayerToggles(fires, filtered, severity), { immediate: true })
   watch(() => ui.filters, (filters) => instance.setDisplayFilters(filters), { immediate: true, deep: true })
   watch(() => ui.basemap, (basemap) => instance.setBasemap(basemap), { immediate: true })
   watch(() => ui.theme, (theme) => void instance.setTheme(theme, themeBackground()), { flush: 'post' })
