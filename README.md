@@ -69,7 +69,7 @@ flowchart LR
 | `POST /api/v1/scenes` | загрузка чипа, ответ содержит `job_id` |
 | `GET /api/v1/stream` | SSE: задания конвейера и алерты |
 | `GET /api/v1/metrics/quality` | метрика кейса по всем сценам с эталоном |
-| `GET /api/v1/tiles/burns/{z}/{x}/{y}.mvt` | векторные тайлы гарей |
+| `GET /api/v1/tiles/burns/{z}/{x}/{y}.mvt` | векторные тайлы гарей; `clip` — id региона или `p:lon,lat;...`, отдаёт только гари выбранной области |
 | `/ogc` | OGC API Features: `hotspots`, `burn_contours`, `burn_severity` |
 
 ```bash

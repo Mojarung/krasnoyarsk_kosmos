@@ -52,6 +52,8 @@ export class FireMap {
   private showFiltered = true
   private display: DisplayFilters = DEFAULT_FILTERS
   private satellite = false
+  private tilesVersion: number | string = 0
+  private clip = ''
   ready: Promise<void>
 
   static async create(container: HTMLElement, theme: MapTheme, background: string, callbacks: MapCallbacks): Promise<FireMap> {
@@ -111,7 +113,20 @@ export class FireMap {
   }
 
   private tileUrl(version: number | string): string {
-    return `${window.location.origin}/api/v1/tiles/burns/{z}/{x}/{y}.mvt?v=${version}`
+    const clip = this.clip ? `&clip=${encodeURIComponent(this.clip)}` : ''
+    return `${window.location.origin}/api/v1/tiles/burns/{z}/{x}/{y}.mvt?v=${version}${clip}`
+  }
+
+  private reloadTiles() {
+    const source = this.map.getSource(SRC.burns)
+    if (source && 'setTiles' in source) (source as unknown as { setTiles: (t: string[]) => void }).setTiles([this.tileUrl(this.tilesVersion)])
+  }
+
+  /** Гари вне выбранной области не приходят с сервера: ключ области входит в адрес тайла. */
+  setClip(clip: string) {
+    if (clip === this.clip) return
+    this.clip = clip
+    this.reloadTiles()
   }
 
   private handleHover(point: { x: number; y: number }) {
@@ -264,8 +279,8 @@ export class FireMap {
   }
 
   refreshTiles(version: number | string) {
-    const source = this.map.getSource(SRC.burns)
-    if (source && 'setTiles' in source) (source as unknown as { setTiles: (t: string[]) => void }).setTiles([this.tileUrl(version)])
+    this.tilesVersion = version
+    this.reloadTiles()
   }
 
   showScene(scene: SceneSummary | null, quicklook: string) {
