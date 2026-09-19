@@ -47,6 +47,12 @@ def tune(proba: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, dict]:
     return best_w, best
 
 
+def compact(metrics: dict) -> dict:
+    return {
+        k: (round(v, 4) if isinstance(v, float) else [round(i, 4) for i in v]) for k, v in metrics.items()
+    }
+
+
 def main() -> None:
     tags = sys.argv[1:]
     y = np.load(OUT / "pixels_y.npy").astype(np.int64)
@@ -58,18 +64,21 @@ def main() -> None:
     assert len(cnn) == len(y), (len(cnn), len(y))
 
     report = {}
-    for share in (0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0):
+    for share in (0.0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0):
         weights, metrics = tune(share * cnn + (1 - share) * gbm, y)
         report[f"cnn_share_{share}"] = {"class_weights": weights.round(3).tolist(), **metrics}
-        print(
-            share,
-            weights.round(2).tolist(),
-            {
-                k: (round(v, 4) if isinstance(v, float) else [round(i, 4) for i in v])
-                for k, v in metrics.items()
-            },
-            flush=True,
-        )
+        print("flat", share, weights.round(2).tolist(), compact(metrics), flush=True)
+
+    # Иерархически: контур гари из смеси, степень внутри контура по отдельной смеси с меньшей долей сети.
+    for burn_share in (0.5, 0.6, 0.7, 0.8):
+        for sev_share in (0.0, 0.2, 0.4):
+            burn = burn_share * cnn + (1 - burn_share) * gbm
+            sev = sev_share * cnn + (1 - sev_share) * gbm
+            sev = sev[:, 1:] / np.maximum(sev[:, 1:].sum(1, keepdims=True), 1e-6)
+            proba = np.concatenate([burn[:, :1], (1 - burn[:, :1]) * sev], axis=1)
+            weights, metrics = tune(proba, y)
+            report[f"hier_{burn_share}_{sev_share}"] = {"class_weights": weights.round(3).tolist(), **metrics}
+            print("hier", burn_share, sev_share, weights.round(2).tolist(), compact(metrics), flush=True)
     (OUT / f"blend_{'+'.join(tags)}.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
 
 

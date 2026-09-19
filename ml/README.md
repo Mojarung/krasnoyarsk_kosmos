@@ -15,8 +15,7 @@ from fire_ml.contract import BsChip, BsPrediction
 class MyBurnSeverity:
     name = "my-bs-v1"  # попадёт в карточку сцены в сервисе
 
-    def __init__(self) -> None:
-        ...  # загрузка весов один раз на процесс
+    def __init__(self) -> None: ...  # загрузка весов один раз на процесс
 
     def predict(self, chip: BsChip) -> BsPrediction:
         severity = np.zeros(chip.s2_post.shape[1:], dtype=np.uint8)

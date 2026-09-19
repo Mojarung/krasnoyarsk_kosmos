@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -28,7 +29,7 @@ WEIGHTS = Path("research/bs/weights")
 CACHE = OUT / "cnn_cache.npz"
 N_FOLDS = 5
 BATCH = 8
-LR = 5e-4
+LR = float(os.environ.get("BS_LR", "5e-4"))
 SEED = 17
 IGNORE = 255
 VALID_EVERY = 10
@@ -52,6 +53,12 @@ def load_all(chip_ids: list[str]) -> tuple[np.ndarray, np.ndarray]:
     return x, y
 
 
+def to_device(block: np.ndarray | torch.Tensor) -> torch.Tensor:
+    """Батч уезжает на GPU в fp16 и приводится к float32 уже там: конвертация на CPU держала GPU на 3-5%."""
+    tensor = block if isinstance(block, torch.Tensor) else torch.from_numpy(np.ascontiguousarray(block))
+    return tensor.cuda().float()
+
+
 def d4(x: torch.Tensor, k: int) -> torch.Tensor:
     x = torch.rot90(x, k % 4, dims=(-2, -1))
     return torch.flip(x, dims=(-1,)) if k >= 4 else x
@@ -73,7 +80,7 @@ def predict(model: nn.Module, x: np.ndarray, tta: tuple[int, ...] = (0, 1, 2, 3,
     model.eval()
     out = np.zeros((len(x), 4, *x.shape[-2:]), dtype=np.float16)
     for start in range(0, len(x), BATCH):
-        batch = torch.from_numpy(x[start : start + BATCH].astype(np.float32)).cuda()
+        batch = to_device(x[start : start + BATCH])
         total = torch.zeros((len(batch), 4, *batch.shape[-2:]), device="cuda")
         for k in tta:
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -113,6 +120,7 @@ def train_fold(
     steps = epochs * (len(train_idx) // BATCH)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=LR, total_steps=steps, pct_start=0.1)
     ce = nn.CrossEntropyLoss(ignore_index=IGNORE)
+    y_gpu = torch.from_numpy(y).cuda()
     dice = smp.losses.DiceLoss("multiclass", ignore_index=IGNORE)
     started = time.time()
     for epoch in range(1, epochs + 1):
@@ -122,10 +130,8 @@ def train_fold(
         for start in range(0, len(order) - BATCH + 1, BATCH):
             ids = np.sort(order[start : start + BATCH])
             k = int(rng.integers(8))
-            batch = d4(torch.from_numpy(x[ids].astype(np.float32)).cuda(), k).contiguous(
-                memory_format=torch.channels_last
-            )
-            target = d4(torch.from_numpy(y[ids].astype(np.int64)).cuda(), k).contiguous()
+            batch = d4(to_device(x[ids]), k).contiguous(memory_format=torch.channels_last)
+            target = d4(y_gpu[ids].long(), k).contiguous()
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 logits = model(batch)
             loss = ce(logits.float(), target) + dice(logits.float(), target)
@@ -149,6 +155,7 @@ def main() -> None:
     meta = pd.read_csv(BS / "meta.csv")
     x, y = load_all(meta.chip_id.tolist())
     print("data", x.shape, y.shape, flush=True)
+    x_gpu = torch.from_numpy(x)
     oof_path = OUT / f"oof_cnn_{tag}.npy"
     oof = np.load(oof_path) if oof_path.exists() else np.zeros((len(x), 4, *x.shape[-2:]), dtype=np.float16)
     report = {}
@@ -156,8 +163,8 @@ def main() -> None:
         if fold not in folds_to_run:
             continue
         started = time.time()
-        model = train_fold(x, y, train_idx, valid_idx, arch, encoder, epochs, SEED + fold, fold)
-        oof[valid_idx] = predict(model, x[valid_idx])
+        model = train_fold(x_gpu, y, train_idx, valid_idx, arch, encoder, epochs, SEED + fold, fold)
+        oof[valid_idx] = predict(model, x_gpu[valid_idx])
         torch.save(model.state_dict(), WEIGHTS / f"{tag}_fold{fold}.pt")
         report[f"fold{fold}"] = case_metrics(y[valid_idx], oof[valid_idx].argmax(1))
         print(

@@ -23,3 +23,5 @@ research/bs/results/*.parquet
 research/bs/results/*.log
 research/bs/weights/
 DATA.7z
+ml/src/fire_ml/weights/bs_net_*.pt
+submissions/
