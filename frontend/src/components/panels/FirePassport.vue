@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Columns2, Crosshair, Download, X 
 import { onKeyStroke } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import MorphLoader from '@/components/common/MorphLoader.vue'
+import HotspotAcquire from './HotspotAcquire.vue'
 import YandexMapsLink from '@/components/common/YandexMapsLink.vue'
 import { useInspectionStore } from '@/stores/inspection'
 import { PURPOSES, type Inspection } from '@/lib/inspections'
@@ -104,9 +105,12 @@ watch(() => query.params, () => {
   if (isList.value) void load()
   else back()
 })
-watch(() => live.dataVersion, load)
+watch(() => live.dataVersion, () => {
+  // The imagery control resolves a newly linked passport itself; its old af-id can disappear.
+  if (detail.value?.status !== 'hotspot_only') void load()
+})
 onKeyStroke('Escape', (e) => {
-  if (ui.compareSceneId || ui.pipelineOpen || inspection.event) return
+  if (ui.compareSceneId || ui.pipelineOpen || inspection.event || ui.vegetationEvent) return
   e.preventDefault()
   if (isList.value) close()
   else back()
@@ -170,6 +174,7 @@ onBeforeUnmount(() => { generation++; controller?.abort(); taskController?.abort
           <template v-else>Снимки: {{ fmt.date(detail.date_from) }} — {{ fmt.date(detail.date_to) }}</template>
         </p>
         <p class="mt-3 text-sm leading-relaxed">{{ explanations[detail.status] }}</p>
+        <HotspotAcquire v-if="detail.status === 'hotspot_only'" :key="detail.id" :event-id="detail.id" @open="open" />
 
         <dl class="mt-4 grid grid-cols-2 gap-4 border-y py-4">
           <div><dt class="text-sm text-muted-foreground">Термоточки VIIRS</dt><dd class="mt-1 text-2xl font-semibold tabular-nums">{{ detail.hotspot_count || 'Нет данных' }}</dd></div>
@@ -183,6 +188,7 @@ onBeforeUnmount(() => { generation++; controller?.abort(); taskController?.abort
         <YandexMapsLink class="mt-4" :bounds="detail.bbox" place="Место наблюдений из паспорта" />
 
         <section v-if="detail.burn" class="mt-5 border-t pt-4" aria-label="Осмотры участка">
+          <Button class="mb-4 w-full" variant="secondary" @click="ui.vegetationEvent = detail">После пожара<ChevronRight /></Button>
           <h3 class="text-sm font-semibold">Проверить на месте</h3>
           <Button class="mt-3 w-full" variant="tonal" @click="inspection.start(detail)">Запланировать осмотр</Button>
           <p v-if="tasksError" class="mt-2 text-xs" role="alert">{{ tasksError }} <button class="underline" @click="loadTasks">Повторить загрузку заданий</button></p>

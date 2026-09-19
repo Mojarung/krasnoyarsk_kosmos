@@ -100,6 +100,20 @@ const SATELLITE_SOURCE = {
   attribution: 'Esri, Maxar, Earthstar Geographics',
 }
 
+/**
+ * Границы между странами подложка не рисует. Сервис показывает, где горит,
+ * административная линия для этого не нужна. В схеме OpenMapTiles все такие
+ * линии лежат в слое `boundary` - убираем его целиком и в тёмной теме, и в
+ * светлой. Контуры регионов у нас свои, слой regions-line.
+ */
+function isBoundary(layer: LayerSpecification): boolean {
+  return 'source-layer' in layer && layer['source-layer'] === 'boundary'
+}
+
+function localizeLabels(layer: LayerSpecification): LayerSpecification {
+  return layer.type === 'symbol' && layer.layout?.['text-field'] ? { ...layer, layout: { ...layer.layout, 'text-field': LOCAL_NAME } } : layer
+}
+
 function fallbackStyle(background: string): StyleSpecification {
   return { version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': background } }] }
 }
@@ -114,9 +128,7 @@ export async function loadBaseStyle(theme: MapTheme, background: string): Promis
   } catch {
     style = fallbackStyle(background)
   }
-  const layers = style.layers.map((layer) =>
-    layer.type === 'symbol' && layer.layout?.['text-field'] ? { ...layer, layout: { ...layer.layout, 'text-field': LOCAL_NAME } } : layer,
-  )
+  const layers = style.layers.filter((layer) => !isBoundary(layer)).map(localizeLabels)
   const firstSymbol = layers.findIndex((layer) => layer.type === 'symbol')
   layers.splice(firstSymbol === -1 ? layers.length : firstSymbol, 0, SATELLITE_LAYER)
   return { ...style, projection: { type: 'globe' }, sky: SKY[theme], sources: { ...style.sources, [SRC.basemapSat]: SATELLITE_SOURCE }, layers }

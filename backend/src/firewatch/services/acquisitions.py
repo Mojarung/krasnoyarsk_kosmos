@@ -136,7 +136,12 @@ def _scene_values(grid: ChipGrid, date_pre: date, date_post: date) -> dict[str, 
 
 
 async def request_acquisition(
-    session: AsyncSession, area: BaseGeometry, date_pre: date, date_post: date
+    session: AsyncSession,
+    area: BaseGeometry,
+    date_pre: date,
+    date_post: date,
+    *,
+    context: dict | None = None,
 ) -> list[dict[str, str]]:
     validate_dates(date_pre, date_post, datetime.now(UTC).date())
     try:
@@ -146,6 +151,8 @@ async def request_acquisition(
     created = []
     for grid in grids:
         values = _scene_values(grid, date_pre, date_post)
+        if context:
+            values["stats"]["acquisition"].update(context)
         session.add(Scene(**values))
         # Между моделями нет relationship, и без явного flush задание может уйти в базу раньше своей сцены.
         await session.flush()

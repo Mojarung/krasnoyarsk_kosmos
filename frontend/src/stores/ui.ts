@@ -36,6 +36,7 @@ export const useUiStore = defineStore('ui', () => {
   const compareSceneId = ref<string | null>(null)
   const passportTarget = shallowRef<PassportTarget | null>(null)
   const passport = shallowRef<FireEventDetail | null>(null)
+  const vegetationEvent = shallowRef<FireEventDetail | null>(null)
   const playing = ref(false)
   const playhead = ref<number | null>(null)
   const flyTarget = shallowRef<{ lon: number; lat: number; zoom?: number } | null>(null)
@@ -103,6 +104,6 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     theme, basemap, showFires, showFiltered, showSeverity, showSources, drawMode, insightTab, insightOpen, queryOpen,
-    pipelineOpen, compareSceneId, passportTarget, passport, playing, playhead, flyTarget, responseCardId, filters, activeFilterCount, toggleTheme, resetFilters,
+    pipelineOpen, compareSceneId, passportTarget, passport, vegetationEvent, playing, playhead, flyTarget, responseCardId, filters, activeFilterCount, toggleTheme, resetFilters,
   }
 })

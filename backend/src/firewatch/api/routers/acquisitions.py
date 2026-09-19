@@ -9,11 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.api.schemas import BBox
 from firewatch.db.session import get_session
-from firewatch.services import acquisitions
+from firewatch.services import acquisitions, hotspot_acquisition
 from firewatch.services.query import InvalidQueryError, SpatioTemporalQuery, parse_geometry
 
 router = APIRouter(prefix="/api/v1", tags=["Анализ новой области"])
 Session = Annotated[AsyncSession, Depends(get_session)]
+
+
+@router.get("/events/{event_id}/acquisition")
+async def hotspot_status(event_id: str, session: Session):
+    return await hotspot_acquisition.state(session, event_id)
+
+
+@router.post("/events/{event_id}/acquisition", status_code=202)
+async def acquire_hotspot(event_id: str, session: Session, retry: bool = False):
+    try:
+        return await hotspot_acquisition.start(session, event_id, retry)
+    except acquisitions.InvalidAcquisitionError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 class AcquisitionBody(BaseModel):

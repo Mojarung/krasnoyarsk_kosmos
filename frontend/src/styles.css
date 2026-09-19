@@ -245,6 +245,11 @@
 .maplibregl-map {
   font-family: inherit;
 }
+
+/* Спектральное изменение: отдельная от пожарной шкала NDVI, −0.3 … +0.3. */
+.vegetation-scale {
+  background: linear-gradient(to right, rgb(163 94 50), rgb(220 213 192), rgb(49 124 93));
+}
 .maplibregl-ctrl-attrib {
   background: color-mix(in srgb, var(--surface-1) 70%, transparent) !important;
   color: var(--muted-foreground);

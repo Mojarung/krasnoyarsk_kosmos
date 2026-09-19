@@ -159,3 +159,61 @@ def test_chip_square_is_one_chip_wide_around_the_point() -> None:
     square = acq.chip_square(44.9, 48.5)
     assert square.contains(Point(44.9, 48.5))
     assert len(aq.plan_grids(square, max_chips=4)) == 1
+
+
+def test_fire_dates_exclude_same_day_and_wrong_side(monkeypatch):
+    grid = aq.plan_grids(Point(44.9, 48.5).buffer(0.001), 1)[0]
+    items = [_item(id=str(day), acquired=datetime(2024, 8, day, tzinfo=UTC)) for day in (14, 15, 16)]
+    monkeypatch.setattr(stac, "search_s2", lambda *args: items)
+    monkeypatch.setattr(aq, "read_scl", lambda *args: np.full((512, 512), 4))
+    assert aq.pick_item(grid, date(2024, 8, 15), 15, 3, before=date(2024, 8, 15))[0].id == "14"
+    assert aq.pick_item(grid, date(2024, 8, 15), 15, 3, after=date(2024, 8, 15))[0].id == "16"
+    with pytest.raises(stac.NoImageryError):
+        aq.pick_item(grid, date(2024, 8, 15), 15, 3, after=date(2024, 8, 17))
+
+
+def test_fire_quality_checks_hotspot_not_average_tile(monkeypatch, tmp_path):
+    grid = aq.plan_grids(Point(44.9, 48.5).buffer(0.001), 1)[0]
+    # Almost all of the image is clear, but the hotspot itself is obscured.
+    scl = np.full((512, 512), 4)
+    scl[200:312, 200:312] = 9
+    calls = []
+
+    def pick(grid, target, *args, **kwargs):
+        calls.append(kwargs)
+        return _item(acquired=datetime.combine(target, datetime.min.time(), UTC)), scl
+
+    monkeypatch.setattr(aq, "pick_item", pick)
+    monkeypatch.setattr(aq, "snap_to_blocks", lambda *args: pytest.fail("Must not shift the target"))
+    with pytest.raises(stac.NoImageryError, match="Недостаточно ясных"):
+        aq.assemble_chip(
+            grid,
+            date(2024, 8, 1),
+            date(2024, 8, 20),
+            tmp_path,
+            days=15,
+            candidates=3,
+            fire_context={
+                "fire_start": "2024-08-10",
+                "fire_end": "2024-08-12",
+                "target_geometry": Point(44.9, 48.5).buffer(0.001).__geo_interface__,
+            },
+        )
+    assert calls[0]["after"] == date(2024, 8, 12)
+    assert calls[1]["before"] == date(2024, 8, 10)
+
+
+def test_pick_prefers_clear_hotspot_even_if_rest_of_tile_cloudy(monkeypatch):
+    grid = aq.plan_grids(Point(44.9, 48.5).buffer(0.001), 1)[0]
+    items = [_item(id="cloudy_point"), _item(id="clear_point")]
+    mask = np.zeros((512, 512), bool)
+    mask[250:260, 250:260] = True
+
+    def scl(item, grid):
+        result = np.full((512, 512), 4 if item.id == "cloudy_point" else 9)
+        result[mask] = 9 if item.id == "cloudy_point" else 4
+        return result
+
+    monkeypatch.setattr(stac, "search_s2", lambda *args: items)
+    monkeypatch.setattr(aq, "read_scl", scl)
+    assert aq.pick_item(grid, date(2024, 8, 16), 15, 3, mask=mask)[0].id == "clear_point"
