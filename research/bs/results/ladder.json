@@ -1,0 +1,9 @@
+[
+ {"name": "индексный baseline, пороги dNBR", "iou_burn": 0.434, "miou_sev": 0.283},
+ {"name": "LightGBM по пикселям, 86 признаков", "iou_burn": 0.579, "miou_sev": 0.591},
+ {"name": "U-Net ResNet34", "iou_burn": 0.605, "miou_sev": 0.544},
+ {"name": "U-Net MiT-B2", "iou_burn": 0.670, "miou_sev": 0.590},
+ {"name": "линейная смесь: бустинг + ResNet34", "iou_burn": 0.648, "miou_sev": 0.638},
+ {"name": "стекинг: бустинг + ResNet34", "iou_burn": 0.677, "miou_sev": 0.659},
+ {"name": "стекинг: бустинг + MiT-B2", "iou_burn": 0.733, "miou_sev": 0.702}
+]

@@ -30,7 +30,7 @@ CACHE = OUT / "cnn_cache.npz"
 N_FOLDS = 5
 BATCH = 8
 LR = float(os.environ.get("BS_LR", "5e-4"))
-SEED = 17
+SEED = int(os.environ.get("BS_SEED", "17"))
 IGNORE = 255
 VALID_EVERY = 10
 
