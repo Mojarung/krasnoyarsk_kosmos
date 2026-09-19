@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.config import get_settings
 from firewatch.domain.catalog import LC_GROUP_LABELS, SEVERITY_LABELS
-from firewatch.services import emissions, metrics
+from firewatch.services import emissions, metrics, territory
 from firewatch.services import query as q
 from firewatch.services.restoration import build_plan
 
@@ -100,6 +100,7 @@ async def build_report(session: AsyncSession, query: q.SpatioTemporalQuery) -> d
 
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "territory": territory.describe(query.geometry),
         "query": {
             "geometry": query.geometry,
             "date_from": query.date_from.isoformat(),
