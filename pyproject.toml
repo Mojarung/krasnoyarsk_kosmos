@@ -14,7 +14,7 @@ members = ["ml", "backend"]
 [tool.ruff]
 line-length = 110
 target-version = "py313"
-src = ["ml/src", "backend/src", "backend/tests", "research/af"]
+src = ["ml/src", "backend/src", "backend/tests", "research/af", "research/bs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
@@ -30,8 +30,24 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
 ]
+dl = [
+    "pyarrow>=25.0.1",
+    "segmentation-models-pytorch>=0.5.0",
+    "timm>=1.0.29",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+]
 research = [
     "matplotlib>=3.11.2",
     "pandas>=3.0.6",
     "scikit-learn>=1.9.1",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }

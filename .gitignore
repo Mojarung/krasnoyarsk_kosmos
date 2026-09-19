@@ -17,3 +17,9 @@ dist/
 submission.csv
 research/af/results/*.pkl
 research/af/results/*.npy
+research/bs/results/*.npy
+research/bs/results/*.npz
+research/bs/results/*.parquet
+research/bs/results/*.log
+research/bs/weights/
+DATA.7z
