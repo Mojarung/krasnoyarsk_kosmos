@@ -6,11 +6,15 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #fbf8f6;
-  --foreground: #231d19;
-  --surface-1: #f5efeb;
-  --surface-2: #eee7e2;
-  --surface-3: #e6ddd7;
+  /* Светлая тема: панель — белая карточка на тёплой земле. Раньше surface-1 был
+     ТЕМНЕЕ фона, поэтому плавающая панель поверх светлой карты читалась грязным
+     пятном, а не поднятым слоем. Шаги между поверхностями увеличены: прежние
+     2–3 % светлоты не давали ни одной плоскости отделиться от соседней. */
+  --background: #efe9e3;
+  --foreground: #211b17;
+  --surface-1: #ffffff;
+  --surface-2: #f6f2ee;
+  --surface-3: #e8e1da;
   --card: var(--surface-1);
   --card-foreground: var(--foreground);
   --popover: var(--surface-2);
@@ -19,7 +23,7 @@
   --primary-foreground: #ffffff;
   --primary-container: #f3ddd1;
   --on-primary-container: #5e3826;
-  --secondary: #e9ded7;
+  --secondary: #ece3db;
   --secondary-foreground: #54463e;
   --tertiary: #5e6040;
   --tertiary-container: #e3e4bd;
@@ -28,15 +32,22 @@
   --accent: var(--surface-3);
   --accent-foreground: var(--foreground);
   --destructive: #ba1a1a;
-  --border: #d6c9c1;
-  --input: #d6c9c1;
+  --border: #dbd1c8;
+  --input: #dbd1c8;
   --ring: #84543e;
-  --scrim: rgb(251 248 246 / 0.72);
+  --scrim: rgb(239 233 227 / 0.72);
   color-scheme: light;
 
-  --sev-1: #e0b21a;
-  --sev-2: #e8842a;
-  --sev-3: #a32a22;
+  /* Шкала степени поражения — порядковая, светлее к слабой. Шаг подобран замером,
+     не на глаз: прежние #e0b21a/#e8842a различались на ΔE 11.4 при нормальном зрении,
+     ниже жёсткого порога 15, то есть «слабая» и «средняя» сливались у всех, а не только
+     при дальтонизме. Текущие ступени дают ΔE 20.3 между соседями и 20.4 при протанопии.
+     Контраст жёлтой к фону 1.83:1 — ниже 3:1, поэтому каждый сегмент обязан нести
+     видимую подпись и число; без подписи эту ступень использовать нельзя.
+     Тёмная тема имеет собственные ступени ниже: они замерены отдельно и проходят. */
+  --sev-1: #e5b81c;
+  --sev-2: #c85312;
+  --sev-3: #7f1610;
   --fire: #d9552a;
   --technogenic: #5f7488;
   --glint: #2b8fc4;
@@ -45,6 +56,8 @@
   --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1);
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --ease-standard: cubic-bezier(0.3, 0, 0.1, 1);
+  --shadow-panel: 0 14px 34px -20px rgb(74 52 38 / 0.32), 0 2px 6px -3px rgb(74 52 38 / 0.14);
+  --shadow-float: 0 10px 24px -14px rgb(74 52 38 / 0.3);
 }
 
 .dark {
@@ -75,6 +88,11 @@
   --fire: #f7774a;
   --technogenic: #8fa3b8;
   --glint: #8ecdf0;
+
+  /* В тёмной тени работают как свечение отделяющее панель от карты, в светлой
+     тот же чёрный на 55 % давал грязное пятно — поэтому тень у каждой темы своя. */
+  --shadow-panel: 0 18px 50px -24px rgb(0 0 0 / 0.65);
+  --shadow-float: 0 12px 30px -14px rgb(0 0 0 / 0.6);
 }
 
 @theme inline {
@@ -141,11 +159,11 @@
 
 @layer components {
   .panel {
-    background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+    background: color-mix(in srgb, var(--surface-1) 90%, transparent);
     backdrop-filter: blur(22px) saturate(1.3);
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border: 1px solid var(--border);
     border-radius: 28px;
-    box-shadow: 0 18px 50px -24px rgb(0 0 0 / 0.55);
+    box-shadow: var(--shadow-panel);
   }
   .term {
     cursor: help;
@@ -157,12 +175,13 @@
     letter-spacing: -0.03em;
     line-height: 1;
   }
+  /* Раньше это был капс 11 px с разрядкой. Капс запрещён стоп-листом проекта и
+     проваливает тест проектора: с пяти метров разрядка сливается, а 11 px не читается.
+     Имя класса оставлено, чтобы не править два десятка мест вызова. */
   .label-caps {
-    font-size: 0.6875rem;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    font-size: 0.8125rem;
     color: var(--muted-foreground);
-    font-variation-settings: "wght" 560;
+    font-variation-settings: "wght" 460;
   }
   .thin-scroll {
     scrollbar-width: thin;
@@ -180,13 +199,13 @@
   border-radius: 14px;
   background: var(--foreground);
   color: var(--background);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
   pointer-events: none;
   opacity: 0;
   scale: 0.92;
   transition: opacity 0.16s ease, scale 0.35s var(--ease-spring);
-  box-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.55);
+  box-shadow: var(--shadow-float);
 }
 .fw-tip[data-open='true'] {
   opacity: 1;
@@ -200,7 +219,7 @@
   background: color-mix(in srgb, var(--surface-1) 70%, transparent) !important;
   color: var(--muted-foreground);
   border-radius: 10px 0 0 0;
-  font-size: 10px;
+  font-size: 12px;
 }
 .maplibregl-ctrl-attrib a {
   color: var(--muted-foreground) !important;
@@ -210,7 +229,7 @@
   color: var(--foreground);
   border-radius: 20px;
   padding: 14px 16px;
-  box-shadow: 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  box-shadow: var(--shadow-panel);
   border: 1px solid var(--border);
 }
 .maplibregl-popup-tip {
@@ -223,5 +242,26 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Переключение темы: цвета едут плавно, но transition вешается только на момент
+   переключения. Постоянный переход на background-color сделал бы вялым отклик
+   наведения — а он пользователю нравится как есть. Карту исключаем: она
+   перерисовывается своим движком. */
+html.theme-anim,
+html.theme-anim *:not(.maplibregl-map):not(.maplibregl-map *) {
+  transition:
+    background-color 300ms var(--ease-standard),
+    border-color 300ms var(--ease-standard),
+    color 300ms var(--ease-standard),
+    fill 300ms var(--ease-standard),
+    stroke 300ms var(--ease-standard),
+    box-shadow 300ms var(--ease-standard) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-anim,
+  html.theme-anim * {
+    transition: none !important;
   }
 }

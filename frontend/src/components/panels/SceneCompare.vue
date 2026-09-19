@@ -75,11 +75,11 @@ async function reprocess() {
 </script>
 
 <template>
-  <section class="panel flex w-[min(560px,94vw)] flex-col gap-3 p-4" aria-label="Сравнение снимков до и после">
+  <section class="panel flex w-[min(720px,94vw)] flex-col gap-3 p-4" aria-label="Сравнение снимков до и после">
     <header class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <div class="truncate text-sm font-semibold">{{ scene?.id ?? 'Загрузка сцены' }}</div>
-        <div v-if="scene?.date_pre && scene.date_post" class="text-xs text-muted-foreground">{{ fmt.date(scene.date_pre) }} → {{ fmt.date(scene.date_post) }} · облачность {{ fmt.pct(scene.cloud_frac) }}</div>
+        <div v-if="scene?.date_pre && scene.date_post" class="text-xs text-muted-foreground">{{ fmt.date(scene.date_pre) }} → {{ fmt.date(scene.date_post) }}, облачность {{ fmt.pct(scene.cloud_frac) }}</div>
       </div>
       <div class="flex shrink-0 items-center gap-1">
         <Button v-tip="'Прогнать сцену через конвейер заново'" variant="ghost" size="icon-sm" aria-label="Обработать сцену заново" @click="reprocess"><RefreshCw /></Button>
@@ -89,7 +89,7 @@ async function reprocess() {
 
     <div
       ref="viewer"
-      class="relative mx-auto aspect-square h-[min(46dvh,440px)] touch-none overflow-hidden rounded-[24px] bg-surface-3 select-none [--split:50%]"
+      class="relative mx-auto aspect-square h-[min(58dvh,560px)] touch-none overflow-hidden rounded-[24px] bg-surface-3 select-none [--split:50%]"
       :class="isPair && 'cursor-ew-resize'"
       @pointerdown="isPair && onPointer($event)"
       @pointermove="isPair && onPointer($event)"
@@ -129,6 +129,6 @@ async function reprocess() {
         <div class="text-muted-foreground">{{ ['слабая', 'средняя', 'сильная'][index] }}</div>
       </div>
     </div>
-    <p v-if="iou != null" class="text-center text-[11px] text-muted-foreground">IoU контура с эталоном: {{ iou.toFixed(3) }} · модель {{ scene?.model_name }}</p>
+    <p v-if="iou != null" class="text-center text-[13px] text-muted-foreground">IoU контура с эталоном: {{ iou.toFixed(3) }}, модель {{ scene?.model_name }}</p>
   </section>
 </template>

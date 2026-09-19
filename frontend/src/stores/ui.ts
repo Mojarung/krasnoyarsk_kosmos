@@ -48,7 +48,17 @@ export const useUiStore = defineStore('ui', () => {
 
   watchEffect(() => document.documentElement.classList.toggle('dark', theme.value === 'dark'))
 
+  /**
+   * Переключение темы даём проехать плавно: класс theme-anim включает переход
+   * цветов на 300 мс и снимается сразу после. Постоянный transition на
+   * background-color висеть не может — он делает вялым отклик на наведение.
+   */
+  let themeAnimTimer: ReturnType<typeof setTimeout> | undefined
   function toggleTheme() {
+    const root = document.documentElement
+    root.classList.add('theme-anim')
+    clearTimeout(themeAnimTimer)
+    themeAnimTimer = setTimeout(() => root.classList.remove('theme-anim'), 380)
     theme.value = theme.value === 'dark' ? 'light' : 'dark'
   }
 
