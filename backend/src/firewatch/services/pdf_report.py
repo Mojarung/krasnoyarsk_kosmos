@@ -81,7 +81,11 @@ def _num(value: float, digits: int = 1) -> str:
 
 
 def _ha(value: float) -> str:
-    return _int(value) if value >= 10 else _num(value, 1)
+    """Дробная часть только у мелких нецелых величин: счётные ряды (точки, очаги)
+    целые, и «1,0 точек» в подписи столбца читалось как ошибка."""
+    if value >= 10 or value == int(value):
+        return _int(value)
+    return _num(value, 1)
 
 
 def _pct(value: float, digits: int = 1) -> str:
@@ -91,6 +95,11 @@ def _pct(value: float, digits: int = 1) -> str:
 def _day(iso: str) -> str:
     d = date.fromisoformat(iso)
     return f"{d.day} {MONTHS_GEN[d.month - 1]} {d.year}"
+
+
+def _stamp(generated_at: str) -> str:
+    """Момент формирования справки: «19 сентября 2026 года, 12:22 UTC»."""
+    return f"{_day(generated_at[:10])} года, {generated_at[11:16]} UTC"
 
 
 def _period(date_from: str, date_to: str) -> str:
@@ -338,6 +347,10 @@ def _cover(pdf: FPDF, report: dict[str, Any]) -> None:
     pdf.set_text_color(*MUTED)
     pdf.cell(0, 5.5, _period(report["query"]["date_from"], report["query"]["date_to"]),
              new_x="LMARGIN", new_y="NEXT")  # fmt: skip
+    # Дата формирования стоит на титуле рядом с периодом: их путают, и на бумаге
+    # должно быть видно сразу, за какой период данные и когда их выгрузили.
+    pdf.set_font("body", "", 8)
+    pdf.cell(0, 4.4, f"Сформирована {_stamp(report['generated_at'])}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(2.5)
     top = pdf.get_y()
@@ -540,6 +553,55 @@ def _largest(pdf: FPDF, report: dict[str, Any]) -> None:
         pdf.line(MARGIN_X, y + 5.6, 210 - MARGIN_X, y + 5.6)
 
 
+def _value_labels(pdf: FPDF, step: float, series: list[float]) -> tuple[dict[int, str], float, bool, float]:
+    """Как подписать значения столбцов: кегль, ориентация и запас места сверху.
+
+    Кегль подбирается под ширину шага. Когда месяцев столько, что число не влезает
+    и в самый мелкий, подписи разворачиваются вертикально: на пятилетнем периоде
+    столбец шириной 2,7 мм, и горизонтальные числа слиплись бы в кашу.
+    """
+    labels = {index: _ha(value) for index, value in enumerate(series) if value > 0}
+    if not labels:
+        return {}, 7.0, True, 0.0
+    widest = max(labels.values(), key=len)
+
+    size = 7.0
+    while True:
+        pdf.set_font("body", "B", size)
+        width = pdf.get_string_width(widest)
+        if width <= step - 0.6 or size <= 5.0:
+            break
+        size -= 0.5
+    upright = width <= step - 0.6
+    # Повёрнутая подпись растёт вверх от столбца, и графику нужен запас над пиком.
+    return labels, size, upright, 2.0 if upright else width + 1.5
+
+
+def _bar_values(
+    pdf: FPDF,
+    left: float,
+    top: float,
+    height: float,
+    step: float,
+    series: list[float],
+    peak_index: int,
+    labels: dict[int, str],
+    size: float,
+    upright: bool,
+) -> None:
+    peak = max(series)
+    for index, label in labels.items():
+        pdf.set_font("body", "B" if index == peak_index else "", size)
+        pdf.set_text_color(*(INK if index == peak_index else MUTED))
+        bar_top = top + height - max(0.7, height * series[index] / peak)
+        center = left + index * step + step / 2
+        if upright:
+            pdf.text(center - pdf.get_string_width(label) / 2, bar_top - 1.2, label)
+        else:
+            with pdf.rotation(90, center, bar_top - 1.5):
+                pdf.text(center + size * 0.12, bar_top - 1.5, label)
+
+
 def _month_chart(
     pdf: FPDF, title: str, months: list[str], values: dict[str, float], color: Color, unit: str
 ) -> None:
@@ -548,8 +610,10 @@ def _month_chart(
     if peak <= 0:
         return
     height = 26.0
-    _ensure(pdf, height + 22)
-    _heading(pdf, title)
+    step = CONTENT_W / len(months)
+    labels, size, upright, headroom = _value_labels(pdf, step, series)
+    _ensure(pdf, height + headroom + 22)
+    _heading(pdf, title, needs=height + headroom + 12)
     peak_month = months[series.index(peak)]
     pdf.set_font("body", "", 8)
     pdf.set_text_color(*MUTED)
@@ -561,8 +625,7 @@ def _month_chart(
         new_y="NEXT",
     )
 
-    left, top = MARGIN_X, pdf.get_y() + 3.5
-    step = CONTENT_W / len(months)
+    left, top = MARGIN_X, pdf.get_y() + 2.5 + headroom
     every = 1 if len(months) <= 14 else (2 if len(months) <= 26 else 3)
     for index, value in enumerate(series):
         if value <= 0:
@@ -574,16 +637,7 @@ def _month_chart(
     pdf.set_line_width(0.25)
     pdf.line(left, top + height, left + CONTENT_W, top + height)
 
-    # Подпись значения только у пика: число на каждом столбце превращает график в таблицу.
-    pdf.set_font("body", "B", 7)
-    pdf.set_text_color(*INK)
-    peak_index = series.index(peak)
-    label = _ha(peak)
-    pdf.text(
-        left + peak_index * step + step / 2 - pdf.get_string_width(label) / 2,
-        top + height - height * 1.0 - 1.2,
-        label,
-    )
+    _bar_values(pdf, left, top, height, step, series, months.index(peak_month), labels, size, upright)
 
     pdf.set_font("body", "", 6.8)
     pdf.set_text_color(*MUTED)
@@ -819,8 +873,7 @@ def _reproduce(pdf: FPDF, report: dict[str, Any]) -> None:
         f"{source} Площади считаются в {place['area_crs']}, координаты выгрузок в {place['crs']}. "
         f"Территория мониторинга покрыта данными за сезоны {area['seasons']}, месяцы {area['months']}.",
     )
-    stamp = report["generated_at"]
-    _note(pdf, f"Справка сформирована {_day(stamp[:10])} года, {stamp[11:16]} UTC.")
+    _note(pdf, f"Справка сформирована {_stamp(report['generated_at'])}.")
 
 
 # ── сборка ────────────────────────────────────────────────────────────────────
