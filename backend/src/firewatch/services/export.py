@@ -64,7 +64,22 @@ def _zip_folder(folder: Path) -> bytes:
 def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
     burn, hot, plan = report["burn"], report["hotspots"], report["restoration"]
     power, emissions = hot["power"], report["emissions"]
+    place = report["territory"]
+    # Территория идёт первой во всех форматах: без неё таблица показателей не
+    # отличима от такой же таблицы по соседнему региону.
     rows: list[tuple[str, str, Any, str]] = [
+        ("Территория", "Название", place["name"], ""),
+        ("Территория", "Тип запроса", place["kind_label"], ""),
+        ("Территория", "Площадь запроса", place["area_km2"], "км²"),
+        ("Территория", "Координаты", place["bbox_label"], ""),
+        ("Территория", "Система координат", place["crs"], ""),
+        ("Территория", "Проекция расчёта площадей", place["area_crs"], ""),
+        ("Территория", "Покрыто территорией мониторинга", place["monitoring_area"]["covered_km2"], "км²"),
+    ]
+    rows += [
+        ("Субъекты РФ", s["name"], s["area_km2"], "км²") for s in place["subjects"]
+    ]
+    rows += [
         ("Запрос", "Период с", report["query"]["date_from"], ""),
         ("Запрос", "Период по", report["query"]["date_to"], ""),
         ("Гари", "Площадь всего", burn["total_ha"], "га"),
@@ -107,6 +122,11 @@ def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
 def export_report(report: dict[str, Any], fmt: str) -> bytes:
     if fmt == "json":
         return json.dumps(report, ensure_ascii=False, indent=2).encode()
+    if fmt == "pdf":
+        try:
+            return pdf_report.render(report)
+        except pdf_report.PdfUnavailableError as exc:
+            raise ExportUnavailableError(str(exc)) from exc
     rows = _report_rows(report)
     if fmt == "csv":
         buffer = io.StringIO()
@@ -114,12 +134,7 @@ def export_report(report: dict[str, Any], fmt: str) -> bytes:
         writer.writerow(("section", "metric", "value", "unit"))
         writer.writerows(rows)
         return ("\ufeff" + buffer.getvalue()).encode()
-    if fmt == "xlsx":
-        return _xlsx(report, rows)
-    try:
-        return pdf_report.render(report, rows)
-    except pdf_report.PdfUnavailableError as exc:
-        raise ExportUnavailableError(str(exc)) from exc
+    return _xlsx(report, rows)
 
 
 def _xlsx(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> bytes:
