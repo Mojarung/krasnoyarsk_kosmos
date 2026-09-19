@@ -49,6 +49,17 @@ def position_layers(shape: tuple[int, int]) -> list[np.ndarray]:
     return [np.hypot(rows, cols), np.abs(rows), np.abs(cols)]
 
 
+def seed_mean(tag: str, masks: np.ndarray) -> np.ndarray:
+    """Сиды одной архитектуры пишутся через плюс и усредняются: unet_mitb2+unet_mitb2_s2."""
+    volumes = [np.load(OUT / f"oof_cnn_{part}.npy", mmap_mode="r") for part in tag.split("+")]
+    mean = (
+        np.mean([np.asarray(v, dtype=np.float32) for v in volumes], axis=0)
+        if len(volumes) > 1
+        else volumes[0]
+    )
+    return cnn_block(mean, masks)
+
+
 def position_block(masks: np.ndarray) -> np.ndarray:
     parts = []
     layers = position_layers(masks.shape[1:])
@@ -89,8 +100,7 @@ def main() -> None:
     masks = np.load(OUT / "cnn_cache.npz")["y"]
     # Каждая сеть идёт своими признаками: при усреднении слабая тянула сильную вниз (0,460 против 0,467).
     cnn = np.concatenate(
-        [cnn_block(np.load(OUT / f"oof_cnn_{tag}.npy", mmap_mode="r"), masks) for tag in tags]
-        + [position_block(masks)],
+        [seed_mean(tag, masks) for tag in tags] + [position_block(masks)],
         axis=1,
     )
     raw = np.stack([np.asarray(x[:, names.index(name)]) for name in RAW], axis=1)

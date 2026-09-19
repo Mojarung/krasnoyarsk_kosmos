@@ -4,13 +4,13 @@
   "gbm_p1",
   "gbm_p2",
   "gbm_p3",
-  "unet_mitb2_p0",
-  "unet_mitb2_p1",
-  "unet_mitb2_p2",
-  "unet_mitb2_p3",
-  "unet_mitb2_burn_5",
-  "unet_mitb2_burn_15",
-  "unet_mitb2_burn_41",
+  "unet_mitb2+unet_mitb2_s2_p0",
+  "unet_mitb2+unet_mitb2_s2_p1",
+  "unet_mitb2+unet_mitb2_s2_p2",
+  "unet_mitb2+unet_mitb2_s2_p3",
+  "unet_mitb2+unet_mitb2_s2_burn_5",
+  "unet_mitb2+unet_mitb2_s2_burn_15",
+  "unet_mitb2+unet_mitb2_s2_burn_41",
   "dist_center",
   "abs_row",
   "abs_col",
@@ -40,11 +40,11 @@
  ],
  "class_weights": [
   1.0,
-  1.725,
-  1.5,
-  1.5
+  1.8,
+  1.8,
+  1.8
  ],
  "cnn_tags": [
-  "unet_mitb2"
+  "unet_mitb2+unet_mitb2_s2"
  ]
 }

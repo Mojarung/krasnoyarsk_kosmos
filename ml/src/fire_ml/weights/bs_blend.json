@@ -1,10 +1,18 @@
 {
  "cnn": [
   {
-   "tag": "unet_mitb2",
+   "files": "unet_mitb2",
    "arch": "Unet",
    "encoder": "mit_b2",
+   "tag": "unet_mitb2+unet_mitb2_s2",
    "weights_glob": "bs_net_unet_mitb2_fold*.pt"
+  },
+  {
+   "files": "unet_mitb2_s2",
+   "arch": "Unet",
+   "encoder": "mit_b2",
+   "tag": "unet_mitb2+unet_mitb2_s2",
+   "weights_glob": "bs_net_unet_mitb2_s2_fold*.pt"
   }
  ],
  "gbm_only": {

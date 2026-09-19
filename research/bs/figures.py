@@ -65,11 +65,11 @@ def ladder(steps: list[tuple[str, float, float]]) -> None:
         axis.text(s + 0.005, pos - 0.2, f"{s:.3f}", va="center")
     axis.set_yticks(positions, names)
     axis.set(
-        xlim=(0, 0.85),
+        xlim=(0, 0.95),
         xlabel="OOF, GroupKFold по событиям пожара",
-        title="Каждый шаг ансамбля добавляет и по контуру, и по степеням",
+        title="Основной прирост дают контекст сети и обучаемое смешивание",
     )
-    axis.legend(frameon=False, loc="lower right")
+    axis.legend(frameon=False, loc="upper right")
     figure.tight_layout()
     figure.savefig(FIGURES / "fig2_ladder.png", dpi=110)
     plt.close(figure)
@@ -126,7 +126,7 @@ def main() -> None:
     label_rule(x, y)
     steps = json.loads((OUT / "ladder.json").read_text(encoding="utf-8"))
     ladder([(s["name"], s["iou_burn"], s["miou_sev"]) for s in steps])
-    examples(x, y, tags, [105, 109, 151, 220])
+    examples(x, y, [part for tag in tags for part in tag.split("+")], [105, 109, 151, 220])
     importance(OUT / f"stack_{'+'.join(tags)}.json")
 
 
