@@ -65,7 +65,7 @@ flowchart LR
 | `POST /api/v1/query` | термоточки, контуры гарей и справка одним ответом |
 | `GET, POST /api/v1/hotspots` | термоточки, `format=geojson,csv`, фильтр `kind` |
 | `GET, POST /api/v1/burns` | контуры (`layer=contours`) или степени (`layer=severity`), `format=geojson,shp,gpkg,kml` |
-| `GET, POST /api/v1/report` | справка, `format=json,csv,xlsx,pdf` |
+| `GET, POST /api/v1/report` | справка, `format=json,csv,xlsx,pdf`; `tz_offset` — пояс выгрузки в минутах, по нему подписано время в шапке PDF |
 | `POST /api/v1/scenes` | загрузка чипа, ответ содержит `job_id` |
 | `GET /api/v1/stream` | SSE: задания конвейера и алерты |
 | `GET /api/v1/metrics/quality` | метрика кейса по всем сценам с эталоном |

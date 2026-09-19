@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -65,12 +65,26 @@ def _day(value: str) -> str:
     return f"{date.fromisoformat(value):%d.%m.%Y}"
 
 
-def _stamp(value: str) -> str:
-    """Отметка времени для шапки: 19.09.2026 11:18 (UTC+0). В JSON она остаётся по ISO."""
+def _zone_label(offset: timedelta) -> str:
+    """Подпись пояса: UTC+3, UTC+5:30 у получасовых, UTC+0 у нулевого."""
+    minutes = round(offset.total_seconds() / 60)
+    hours, rest = divmod(abs(minutes), 60)
+    tail = f":{rest:02d}" if rest else ""
+    return f"UTC{'-' if minutes < 0 else '+'}{hours}{tail}"
+
+
+def _stamp(value: str, tz_offset_min: int = 0) -> str:
+    """
+    Отметка времени для шапки: 19.09.2026 14:18 (UTC+3). Время показываем по часам
+    того, кто делает выгрузку, — его смещение приходит с запросом. В JSON отметка
+    остаётся по ISO в UTC: её читают скрипты.
+    """
     moment = datetime.fromisoformat(value)
-    offset = moment.utcoffset()
-    hours = round(offset.total_seconds() / 3600) if offset else 0
-    return f"{moment:%d.%m.%Y %H:%M} (UTC{hours:+d})"
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    zone = timezone(timedelta(minutes=tz_offset_min))
+    local = moment.astimezone(zone)
+    return f"{local:%d.%m.%Y %H:%M} ({_zone_label(local.utcoffset() or timedelta())})"
 
 
 def _heading(pdf: FPDF, text: str) -> None:
@@ -183,7 +197,7 @@ def bar_list(pdf: FPDF, title: str, rows: list[tuple[str, float]], color: Color,
         )
 
 
-def render(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> bytes:
+def render(report: dict[str, Any], rows: list[tuple[str, str, Any, str]], tz_offset_min: int = 0) -> bytes:
     regular, bold = _fonts()
     pdf = FPDF(format="A4")
     pdf.add_font("body", "", regular)
@@ -202,7 +216,7 @@ def render(report: dict[str, Any], rows: list[tuple[str, str, Any, str]]) -> byt
         0,
         5,
         f"Период {_day(query['date_from'])} - {_day(query['date_to'])}."
-        f" Сформировано {_stamp(report['generated_at'])}",
+        f" Сформировано {_stamp(report['generated_at'], tz_offset_min)}",
         new_x="LMARGIN",
         new_y="NEXT",
     )

@@ -93,7 +93,7 @@ def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
     return rows
 
 
-def export_report(report: dict[str, Any], fmt: str) -> bytes:
+def export_report(report: dict[str, Any], fmt: str, tz_offset_min: int = 0) -> bytes:
     if fmt == "json":
         return json.dumps(report, ensure_ascii=False, indent=2).encode()
     rows = _report_rows(report)
@@ -106,7 +106,7 @@ def export_report(report: dict[str, Any], fmt: str) -> bytes:
     if fmt == "xlsx":
         return _xlsx(report, rows)
     try:
-        return pdf_report.render(report, rows)
+        return pdf_report.render(report, rows, tz_offset_min)
     except pdf_report.PdfUnavailableError as exc:
         raise ExportUnavailableError(str(exc)) from exc
 

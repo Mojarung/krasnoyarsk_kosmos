@@ -88,13 +88,15 @@ async def _burns(session: AsyncSession, query: q.SpatioTemporalQuery, layer: str
     return _download(body, media_type, f"{_stem(query, name)}.{extension}")
 
 
-async def _report(session: AsyncSession, query: q.SpatioTemporalQuery, fmt: str) -> Any:
+async def _report(
+    session: AsyncSession, query: q.SpatioTemporalQuery, fmt: str, tz_offset_min: int = 0
+) -> Any:
     report = await cached("report", query.cache_key, lambda: build_report(session, query))
     _keep(asyncio.create_task(warm_tiles([(b["lon"], b["lat"]) for b in report["burn"]["largest"]])))
     if fmt == "json":
         return report
     try:
-        body = await asyncio.to_thread(export_report, report, fmt)
+        body = await asyncio.to_thread(export_report, report, fmt, tz_offset_min)
     except ExportUnavailableError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     media_type, extension = REPORT_FORMATS[fmt]
@@ -155,11 +157,23 @@ async def post_burns(
     return await _burns(session, body.to_query(), layer, format)
 
 
+# Время в шапке справки — по часам того, кто её выгружает. Сервер живёт в UTC и
+# пояса клиента не знает, поэтому смещение приходит с запросом (как в JS:
+# -new Date().getTimezoneOffset()). Без параметра остаётся UTC.
+TzOffset = Annotated[
+    int, Query(ge=-840, le=840, description="Смещение часового пояса выгрузки от UTC, минуты")
+]
+
+
 @router.get("/report", summary="Аналитическая справка по bbox и периоду: JSON, CSV, XLSX, PDF")
-async def get_report(query: GetQuery, session: Session, format: ReportFormat = "json") -> Any:
-    return await _report(session, query, format)
+async def get_report(
+    query: GetQuery, session: Session, format: ReportFormat = "json", tz_offset: TzOffset = 0
+) -> Any:
+    return await _report(session, query, format, tz_offset)
 
 
 @router.post("/report", summary="Аналитическая справка по полигону и периоду")
-async def post_report(body: QueryBody, session: Session, format: ReportFormat = "json") -> Any:
-    return await _report(session, body.to_query(), format)
+async def post_report(
+    body: QueryBody, session: Session, format: ReportFormat = "json", tz_offset: TzOffset = 0
+) -> Any:
+    return await _report(session, body.to_query(), format, tz_offset)

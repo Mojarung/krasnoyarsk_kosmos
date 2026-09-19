@@ -31,6 +31,15 @@ const REPORT = [
   { format: 'json', label: 'JSON', hint: 'Полная справка с методикой, для скриптов и интеграций' },
 ]
 
+/*
+ * Время в шапке справки — по часам того, кто её выгружает: сервер живёт в UTC.
+ * Смещение читаем в момент нажатия, иначе вкладка, открытая до перевода часов
+ * или переезда в другой пояс, подписала бы справку старым временем.
+ */
+function tzOffset(): number {
+  return -new Date().getTimezoneOffset()
+}
+
 const layer = ref<Layer>('contours')
 const busy = ref<string | null>(null)
 const failure = ref<string | null>(null)
@@ -83,7 +92,7 @@ async function save(path: string, key: string) {
 
       <div class="label-caps mb-2 mt-4">Аналитическая справка</div>
       <div class="flex flex-wrap gap-1.5">
-        <Button v-for="item in REPORT" :key="item.format" v-tip="item.hint" size="sm" variant="secondary" :disabled="busy !== null" @click="save(`/api/v1/report?format=${item.format}`, `report.${item.format}`)">
+        <Button v-for="item in REPORT" :key="item.format" v-tip="item.hint" size="sm" variant="secondary" :disabled="busy !== null" @click="save(`/api/v1/report?format=${item.format}&tz_offset=${tzOffset()}`, `report.${item.format}`)">
           {{ busy === `report.${item.format}` ? 'Готовим...' : item.label }}
         </Button>
       </div>
