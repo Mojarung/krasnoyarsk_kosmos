@@ -31,6 +31,17 @@ PRODUCTS = {
     "NOAA20": ("VIIRS_NOAA20_SP", "VIIRS_NOAA20_NRT"),
     "NOAA21": ("VIIRS_NOAA21_SP", "VIIRS_NOAA21_NRT"),
 }
+# FIRMS charges the MAP_KEY quota per requested day. Asking for every satellite
+# triples both the quota and the response time while returning overlapping
+# observations. Use one continuous, best-available VIIRS stream instead:
+# NOAA-20 where possible, then the longer S-NPP archive, then NOAA-21.
+PRODUCT_PRIORITY = (
+    "VIIRS_NOAA20_SP",
+    "VIIRS_SNPP_SP",
+    "VIIRS_NOAA20_NRT",
+    "VIIRS_SNPP_NRT",
+    "VIIRS_NOAA21_NRT",
+)
 SATELLITES = {
     "N": "SNPP",
     "SNPP": "SNPP",
@@ -104,33 +115,42 @@ def parse_availability(body: str) -> list[Availability]:
 
 
 def plan_requests(availability: list[Availability], date_from: date, date_to: date) -> list[RequestPart]:
-    """Pick Standard Processing first, then NRT, without requesting the same sensor twice."""
+    """Build one non-overlapping VIIRS stream in five-day FIRMS requests."""
     by_product = {item.product: item for item in availability}
     result = []
-    for products in PRODUCTS.values():
-        current = date_from
-        while current <= date_to:
-            candidate = next(
-                (
-                    by_product[product]
-                    for product in products
-                    if product in by_product and by_product[product].date_from <= current <= by_product[product].date_to
-                ),
-                None,
-            )
-            if candidate is None:
-                starts = [
-                    by_product[product].date_from
-                    for product in products
-                    if product in by_product and by_product[product].date_from > current
-                ]
-                if not starts:
-                    break
-                current = min(starts)
-                continue
-            end = min(date_to, candidate.date_to, current + timedelta(days=MAX_API_DAYS - 1))
-            result.append(RequestPart(candidate.product, current, (end - current).days + 1))
-            current = end + timedelta(days=1)
+    current = date_from
+    while current <= date_to:
+        candidate = next(
+            (
+                by_product[product]
+                for product in PRODUCT_PRIORITY
+                if product in by_product and by_product[product].date_from <= current <= by_product[product].date_to
+            ),
+            None,
+        )
+        if candidate is None:
+            starts = [
+                item.date_from
+                for product in PRODUCT_PRIORITY
+                if (item := by_product.get(product)) is not None and item.date_from > current
+            ]
+            if not starts:
+                break
+            current = min(starts)
+            continue
+        end = min(date_to, candidate.date_to, current + timedelta(days=MAX_API_DAYS - 1))
+        # Switch as soon as a higher-priority stream becomes available instead
+        # of keeping the fallback until the end of this five-day chunk.
+        candidate_priority = PRODUCT_PRIORITY.index(candidate.product)
+        better_starts = [
+            item.date_from
+            for product in PRODUCT_PRIORITY[:candidate_priority]
+            if (item := by_product.get(product)) is not None and current < item.date_from <= end
+        ]
+        if better_starts:
+            end = min(better_starts) - timedelta(days=1)
+        result.append(RequestPart(candidate.product, current, (end - current).days + 1))
+        current = end + timedelta(days=1)
     return result
 
 
@@ -174,7 +194,16 @@ def parse_detections(body: str, product: str) -> list[Detection]:
 
 async def _csv(client: httpx.AsyncClient, path: str) -> str:
     response = await client.get(path)
-    response.raise_for_status()
+    if not response.is_success:
+        detail = response.text.strip().lower()
+        if response.status_code in {400, 429} and "transaction limit" in detail:
+            raise FirmsError(
+                "Квота NASA FIRMS временно исчерпана. Она обновляется каждые 10 минут; "
+                "повторите загрузку немного позже"
+            )
+        if response.status_code in {401, 403} or "map_key" in detail or "map key" in detail:
+            raise FirmsError("NASA FIRMS отклонил ключ доступа. Проверьте FIRMS_MAP_KEY на сервере")
+        raise FirmsError(f"NASA FIRMS временно недоступен (HTTP {response.status_code})")
     return response.text
 
 
@@ -201,7 +230,17 @@ async def fetch(area: BaseGeometry, date_from: date, date_to: date) -> tuple[lis
                 path = f"/api/area/csv/{key}/{part.product}/{bounds}/{part.days}/{part.date_from.isoformat()}"
                 return parse_detections(await _csv(client, path), part.product), part.product
 
-        batches = await asyncio.gather(*(load(part) for part in requests))
+        # Plain gather() returns the first error while queued siblings keep
+        # running and burning the shared quota. Cancel and drain them explicitly
+        # while preserving the original exception type for the API layer.
+        tasks = [asyncio.create_task(load(part)) for part in requests]
+        try:
+            batches = await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
 
     # The Area API accepts only a bbox. Honour the polygon the user actually drew.
     prepared = area.buffer(0)

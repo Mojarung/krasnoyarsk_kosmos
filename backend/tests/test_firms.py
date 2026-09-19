@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from shapely.geometry import box
 
@@ -22,22 +23,25 @@ DETECTIONS = """latitude,longitude,bright_ti4,acq_date,acq_time,satellite,confid
 """
 
 
-def test_availability_uses_standard_processing_then_nrt_in_five_day_chunks() -> None:
+def test_availability_uses_one_best_stream_in_five_day_chunks() -> None:
     parts = firms.plan_requests(
         firms.parse_availability(AVAILABILITY), date(2024, 8, 29), date(2024, 9, 4)
     )
 
-    snpp = [part for part in parts if "SNPP" in part.product]
-    noaa20 = [part for part in parts if "NOAA20" in part.product]
-    noaa21 = [part for part in parts if "NOAA21" in part.product]
-    assert [(part.product, part.date_from, part.days) for part in snpp] == [
-        ("VIIRS_SNPP_SP", date(2024, 8, 29), 3),
-        ("VIIRS_SNPP_NRT", date(2024, 9, 1), 4),
+    assert [(part.product, part.date_from, part.days) for part in parts] == [
+        ("VIIRS_NOAA20_SP", date(2024, 8, 29), 3),
+        ("VIIRS_NOAA20_NRT", date(2024, 9, 1), 4),
     ]
-    assert len(noaa20) == 2
-    assert [(part.date_from, part.days) for part in noaa21] == [
-        (date(2024, 8, 29), 5),
-        (date(2024, 9, 3), 2),
+
+
+def test_availability_switches_from_archive_fallback_when_noaa20_starts() -> None:
+    parts = firms.plan_requests(
+        firms.parse_availability(AVAILABILITY), date(2018, 3, 30), date(2018, 4, 3)
+    )
+
+    assert [(part.product, part.date_from, part.days) for part in parts] == [
+        ("VIIRS_SNPP_SP", date(2018, 3, 30), 2),
+        ("VIIRS_NOAA20_SP", date(2018, 4, 1), 3),
     ]
 
 
@@ -50,6 +54,40 @@ def test_long_period_is_split_without_an_artificial_total_limit() -> None:
     assert all(1 <= part.days <= 5 for part in parts)
     assert any(part.date_from == date(2024, 1, 1) for part in parts)
     assert max(part.date_from + timedelta(days=part.days - 1) for part in parts) == date(2024, 8, 31)
+    assert {part.product for part in parts} == {"VIIRS_NOAA20_SP"}
+    assert len(parts) == 49
+
+
+@pytest.mark.asyncio
+async def test_quota_error_is_actionable_and_does_not_leak_map_key() -> None:
+    secret = "secret-map-key"
+
+    async def reject(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text="Exceeding allowed transaction limit.")
+
+    async with httpx.AsyncClient(
+        base_url="https://firms.example", transport=httpx.MockTransport(reject)
+    ) as client:
+        with pytest.raises(firms.FirmsError, match="обновляется каждые 10 минут") as error:
+            await firms._csv(client, f"/api/area/csv/{secret}/VIIRS_NOAA20_SP/world/5/2024-01-01")
+
+    assert secret not in str(error.value)
+
+
+@pytest.mark.asyncio
+async def test_other_firms_http_errors_are_sanitized() -> None:
+    secret = "secret-map-key"
+
+    async def reject(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="upstream unavailable")
+
+    async with httpx.AsyncClient(
+        base_url="https://firms.example", transport=httpx.MockTransport(reject)
+    ) as client:
+        with pytest.raises(firms.FirmsError, match="HTTP 503") as error:
+            await firms._csv(client, f"/api/area/csv/{secret}/VIIRS_NOAA20_SP/world/5/2024-01-01")
+
+    assert secret not in str(error.value)
 
 
 def test_viirs_csv_maps_satellites_confidence_and_night() -> None:
