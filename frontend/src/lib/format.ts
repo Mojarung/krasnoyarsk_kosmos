@@ -2,6 +2,10 @@ const integer = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
 const oneDigit = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 })
 const percent = new Intl.NumberFormat('ru-RU', { style: 'percent', maximumFractionDigits: 1 })
 const compact = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 })
+// Метрики печатались через toFixed и давали точку рядом с остальными числами,
+// набранными по-русски через запятую: 0.586 и 0,960 на одном экране.
+const threeDigits = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+const twoDigits = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const shortDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
 const dayMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
 const dateTime = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
@@ -16,7 +20,8 @@ export const fmt = {
   ha: (value: number) => (value >= 100 ? integer.format(value) : oneDigit.format(value)),
   pct: (value: number | null | undefined) => (value == null ? '-' : percent.format(value)),
   compact: (value: number) => compact.format(value),
-  score: (value: number | null | undefined) => (value == null ? '-' : value.toFixed(3)),
+  score: (value: number | null | undefined) => (value == null ? '—' : threeDigits.format(value)),
+  ratio: (value: number | null | undefined) => (value == null ? '—' : twoDigits.format(value)),
   date: (iso: string) => shortDate.format(new Date(iso)),
   month: (key: string) => `${monthLong.format(monthStart(key))} ${key.slice(0, 4)}`,
   monthShort: (key: string) => monthShort.format(monthStart(key)).replace('.', ''),

@@ -17,6 +17,14 @@ dist/
 submission.csv
 research/af/results/*.pkl
 research/af/results/*.npy
+
+# Impeccable: хук машинно-локальный, у каждого свой
+.claude/settings.local.json
+.impeccable/config.local.json
+
+# Снимки экрана регенерируются: node design/capture.mjs
+design/screens/
+
 research/bs/results/*.npy
 research/bs/results/*.npz
 research/bs/results/*.parquet
@@ -25,3 +33,5 @@ research/bs/weights/
 DATA.7z
 ml/src/fire_ml/weights/bs_net_*.pt
 submissions/
+frontend/playwright-report/
+frontend/test-results/

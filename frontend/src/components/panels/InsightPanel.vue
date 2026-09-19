@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, BarChart3, ChevronRight, History, LayoutDashboard, Maximize2, ShieldCheck, Sprout, Wind } from '@lucide/vue'
+import { BarChart3, ChevronRight, History, LayoutDashboard, Maximize2, Minimize2, ShieldCheck, Sprout, Wind } from '@lucide/vue'
 import { onKeyStroke } from '@vueuse/core'
 import { gsap } from 'gsap'
 import { type Component, computed, defineAsyncComponent, ref, watch } from 'vue'
@@ -17,12 +17,22 @@ type DetailView = Exclude<InsightView, 'overview'>
 const query = useQueryStore()
 const ui = useUiStore()
 
-const SECTIONS: { view: DetailView; title: string; short: string; about: string; icon: Component }[] = [
-  { view: 'dynamics', title: 'Динамика и статистика', short: 'Когда и где горело', about: 'Графики по месяцам, что именно горело, какой спутник заметил и какая была погода', icon: BarChart3 },
-  { view: 'emissions', title: 'Выбросы в атмосферу', short: 'Что ушло в воздух', about: 'Сколько биомассы сгорело и сколько при этом выброшено CO₂, угарного газа, метана и мелкой взвеси', icon: Wind },
-  { view: 'profile', title: 'Профиль территории', short: 'Как горит обычно', about: 'Все годы наблюдений: межгодовой ход, сезонность и места, которые горят из года в год', icon: History },
-  { view: 'restoration', title: 'Восстановление', short: 'Что делать с гарями', about: 'Что восстановится само, а где нужны посадки. Считаем по степени поражения и типу территории', icon: Sprout },
-  { view: 'alarms', title: 'Ложные тревоги', short: 'Заводы, факелы, блики', about: 'Спутник видит тепло, но это не пожар: заводы, факелы, блики. Отсеяли их, и бригада не выезжает зря', icon: ShieldCheck },
+const SECTIONS: { view: DetailView; title: string; icon: Component }[] = [
+  { view: 'dynamics', title: 'Динамика и статистика', icon: BarChart3 },
+  { view: 'emissions', title: 'Выбросы в атмосферу', icon: Wind },
+  { view: 'profile', title: 'Профиль территории', icon: History },
+  { view: 'restoration', title: 'Восстановление', icon: Sprout },
+  { view: 'alarms', title: 'Ложные тревоги', icon: ShieldCheck },
+]
+
+/**
+ * «Сводка» стоит первым пунктом списка слева, а не отдельной кнопкой «назад»
+ * в противоположном от сворачивания углу. Список отвечает на «куда», кнопка
+ * справа — на «насколько крупно»: два разных вопроса, два разных места.
+ */
+const NAV: { view: InsightView; title: string; icon: Component }[] = [
+  { view: 'overview', title: 'Сводка', icon: LayoutDashboard },
+  ...SECTIONS,
 ]
 const VIEWS = {
   overview: defineAsyncComponent(() => import('./tabs/OverviewTab.vue')),
@@ -32,7 +42,7 @@ const VIEWS = {
   restoration: defineAsyncComponent(() => import('./tabs/RestorationTab.vue')),
   alarms: defineAsyncComponent(() => import('./tabs/TechnogenicTab.vue')),
 }
-const COMPACT_CLASS = 'flex max-h-full w-[420px] flex-col'
+const COMPACT_CLASS = 'flex max-h-full w-[min(420px,100%)] flex-col'
 const WIDE_CLASS = 'ml-auto flex h-full min-w-0 max-w-[1280px] flex-1 flex-col !bg-surface-1/95'
 
 const content = ref<HTMLElement | null>(null)
@@ -40,6 +50,20 @@ const scroller = ref<HTMLElement | null>(null)
 const isWide = computed(() => ui.insightTab !== 'overview')
 const section = computed(() => SECTIONS.find((s) => s.view === ui.insightTab) ?? null)
 const period = computed(() => [query.dateFrom, query.dateTo].map((d) => fmt.date(d).replace(/\s*г\.$/, '')).join(' - '))
+
+/**
+ * Одна кнопка в правом верхнем углу уменьшает панель на ступень: с разбора
+ * во весь экран — до сводки, со сводки — до плитки. Раньше эти два действия
+ * жили в противоположных углах, и чтобы выйти из разбора, приходилось тянуться
+ * через весь экран влево.
+ */
+const shrinkTip = computed(() =>
+  isWide.value ? 'Свернуть до сводки, клавиша Esc' : 'Скрыть панель, карта станет шире',
+)
+function shrink() {
+  if (isWide.value) open('overview')
+  else ui.insightOpen = false
+}
 
 function open(view: InsightView) {
   ui.insightTab = view
@@ -58,7 +82,7 @@ watch(
 // Перелёт к объекту происходит на карте, а широкий лист её закрывает.
 watch(() => ui.flyTarget, (target) => target && isWide.value && open('overview'))
 onKeyStroke('Escape', () => {
-  if (isWide.value && ui.insightOpen && !ui.pipelineOpen && !ui.compareSceneId) open('overview')
+  if (isWide.value && ui.insightOpen && !ui.pipelineOpen && !ui.compareSceneId && !ui.passportTarget) open('overview')
 })
 </script>
 
@@ -74,20 +98,27 @@ onKeyStroke('Escape', () => {
 
     <div class="flex min-h-0 flex-1 flex-col @container/panel">
     <header class="flex items-center gap-3 px-3 pt-3">
-      <Button v-if="isWide" v-tip="'Свернуть до сводки и вернуть карту, клавиша Esc'" variant="secondary" size="sm" class="shrink-0 pl-2.5" @click="open('overview')"><ArrowLeft />Сводка</Button>
-      <div class="min-w-0 flex-1" :class="!isWide && 'pl-2'">
+      <div class="min-w-0 flex-1 pl-2">
         <h2 class="truncate text-[15px] font-semibold leading-tight">{{ section?.title ?? 'Сводка' }}</h2>
-        <p class="truncate text-muted-foreground" :class="isWide ? 'text-xs' : 'text-[11px]'">{{ section?.about ?? `${query.regionName} · ${period}` }}</p>
+        <p class="truncate text-[13px] text-muted-foreground">{{ query.regionName }}, {{ period }}</p>
       </div>
-      <span v-if="isWide" class="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-xs text-muted-foreground max-xl:hidden">{{ query.regionName }} · {{ period }}</span>
       <Button v-if="!isWide" v-tip="'Открыть подробную аналитику на весь экран'" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Открыть подробную аналитику" @click="open('dynamics')"><Maximize2 /></Button>
-      <Button v-tip="'Свернуть панель, карта станет шире'" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Свернуть сводку" @click="ui.insightOpen = false"><ChevronRight /></Button>
+      <Button
+        v-tip="shrinkTip"
+        variant="ghost"
+        size="icon-sm"
+        class="shrink-0"
+        :aria-label="isWide ? 'Свернуть до сводки' : 'Скрыть панель'"
+        @click="shrink"
+      >
+        <component :is="isWide ? Minimize2 : ChevronRight" />
+      </Button>
     </header>
 
     <div class="flex min-h-0 flex-1">
       <nav v-if="isWide" class="hidden w-[236px] shrink-0 flex-col gap-1 py-3 pl-3 @3xl/panel:flex" aria-label="Разделы аналитики">
         <button
-          v-for="item in SECTIONS"
+          v-for="item in NAV"
           :key="item.view"
           type="button"
           class="flex items-start gap-3 rounded-[20px] px-3.5 py-2.5 text-left outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/60"
@@ -98,15 +129,14 @@ onKeyStroke('Escape', () => {
           <component :is="item.icon" class="mt-0.5 size-4 shrink-0" :class="ui.insightTab !== item.view && 'text-muted-foreground'" />
           <span class="min-w-0">
             <span class="block text-[13px] font-medium leading-tight">{{ item.title }}</span>
-            <span class="mt-0.5 block text-xs leading-snug opacity-70">{{ item.short }}</span>
           </span>
         </button>
-        <div v-if="query.report" class="mt-auto rounded-[20px] bg-surface-2 px-4 py-3">
-          <div class="label-caps">Пройдено огнём</div>
+        <div v-if="query.report" class="mt-3 rounded-[20px] bg-surface-2 px-4 py-3">
+          <div class="text-[13px] text-muted-foreground">Пройдено огнём</div>
           <div class="mt-0.5 flex items-baseline gap-1.5"><span class="display-number text-2xl">{{ fmt.ha(query.report.burn.total_ha) }}</span><span class="text-sm text-muted-foreground">га</span></div>
-          <div class="mt-1 text-xs leading-snug text-muted-foreground">{{ plural(query.report.hotspots.fire_clusters, ['очаг', 'очага', 'очагов']) }} · отсеяно {{ fmt.int(query.report.hotspots.technogenic + query.report.hotspots.glint) }}</div>
+          <div class="mt-1 text-xs leading-snug text-muted-foreground">{{ plural(query.report.hotspots.fire_clusters, ['очаг', 'очага', 'очагов']) }}, отсеяно {{ fmt.int(query.report.hotspots.technogenic + query.report.hotspots.glint) }}</div>
         </div>
-        <div class="flex" :class="query.report ? 'mt-2' : 'mt-auto'"><ExportMenu /></div>
+        <div class="mt-3 flex"><ExportMenu /></div>
       </nav>
 
       <div ref="scroller" class="thin-scroll relative min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-3 pt-3 @container">

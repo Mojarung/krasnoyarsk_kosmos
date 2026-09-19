@@ -36,7 +36,7 @@ function open() {
     <span class="grid size-10 shrink-0 place-items-center rounded-full bg-fire text-white"><Siren class="size-5" /></span>
     <span class="text-[13px] leading-snug">
       <span class="block font-semibold">{{ live.toast.n_hotspots }} новых термоточек: {{ live.toast.zone_name }}</span>
-      <span class="text-muted-foreground">{{ fmt.dateTimeUtc(live.toast.acquired_at) }} · показать на карте</span>
+      <span class="text-muted-foreground">{{ fmt.dateTimeUtc(live.toast.acquired_at) }}, показать на карте</span>
     </span>
   </button>
 </template>

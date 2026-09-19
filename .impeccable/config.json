@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "clipped-overflow-container",
+        "value": "*",
+        "files": [
+          "design/directions/06-lenta-vremeni/index.html"
+        ],
+        "createdAt": "2026-09-18T22:45:17.053Z",
+        "reason": "Agent: превью до/после — фигура с overflow:hidden обрезает снимок намеренно, figcaption лежит внутри и не должен выходить"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "design/directions/03-planshet/index.html"
+        ],
+        "createdAt": "2026-09-18T23:04:51.073Z",
+        "reason": "Agent: поле карты примыкает к рамке листа вплотную намеренно — на топооснове карта идёт в обрез, отступ разрушил бы картографическую композицию; подписи внутри имеют свои 18px"
+      }
+    ]
+  }
+}

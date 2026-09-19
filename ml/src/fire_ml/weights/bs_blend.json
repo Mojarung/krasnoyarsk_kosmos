@@ -1,10 +1,10 @@
 {
  "cnn": [
   {
-   "tag": "unet_r34",
+   "tag": "unet_mitb2",
    "arch": "Unet",
-   "encoder": "resnet34",
-   "weights_glob": "bs_net_unet_r34_fold*.pt"
+   "encoder": "mit_b2",
+   "weights_glob": "bs_net_unet_mitb2_fold*.pt"
   }
  ],
  "gbm_only": {

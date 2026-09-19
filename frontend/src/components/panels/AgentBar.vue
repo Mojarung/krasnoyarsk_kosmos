@@ -27,7 +27,7 @@ const card = ref<AgentCardData | null>(null)
 const refusalExamples = ref<string[]>([])
 let controller: AbortController | null = null
 
-const modeLabel = computed(() => (mode.value === 'llm' ? `${query.meta?.agent.model ?? 'LLM'} · карта и справка уже обновлены` : mode.value === 'rules' ? 'разбор по правилам · карта и справка уже обновлены' : mode.value === 'guard' ? 'вопрос вне темы, карта не менялась' : null))
+const modeLabel = computed(() => (mode.value === 'llm' ? `${query.meta?.agent.model ?? 'LLM'}, карта и справка уже обновлены` : mode.value === 'rules' ? 'разбор по правилам, карта и справка уже обновлены' : mode.value === 'guard' ? 'вопрос вне темы, карта не менялась' : null))
 
 onClickOutside(root, () => !busy.value && (open.value = false))
 
@@ -88,13 +88,13 @@ function close() {
       <input
         v-model="input"
         class="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        placeholder="Спросите: гари в Калмыкии за июль 2023"
+        placeholder="Спросите: гари в Ростовской области в июле 2020"
         aria-label="Запрос агенту"
         @focus="!answer && (open = true)"
       />
       <button
         type="submit"
-        class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[border-radius,transform,opacity] duration-300 ease-spring active:scale-90 active:rounded-xl disabled:opacity-40"
+        class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[transform,opacity] duration-200 ease-standard active:scale-90 disabled:opacity-40"
         :disabled="busy || !input.trim()"
         aria-label="Отправить"
       >

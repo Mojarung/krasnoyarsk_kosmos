@@ -1,6 +1,9 @@
 import type { FeatureCollection, Point } from 'geojson'
 import type {
   AlertItem,
+  FireEventDetail,
+  FireEventList,
+  FireEventStatus,
   AreaGeometry,
   Meta,
   PipelineMetrics,
@@ -49,6 +52,11 @@ export interface QueryParams {
 }
 
 export const api = {
+  events: (params: QueryParams, status: FireEventStatus | 'all', offset = 0, signal?: AbortSignal) =>
+    post<FireEventList>(`${BASE}/events?${new URLSearchParams({ status, offset: String(offset) })}`, params, signal),
+  event: (id: string, signal?: AbortSignal) => request<FireEventDetail>(`${BASE}/events/${encodeURIComponent(id)}`, { signal }),
+  resolveEvent: (target: { type: 'hotspot' | 'scene'; id: string | number }, signal?: AbortSignal) =>
+    request<{ id: string }>(`${BASE}/events/resolve?${new URLSearchParams({ [target.type === 'hotspot' ? 'hotspot_id' : 'scene_id']: String(target.id) })}`, { signal }),
   meta: () => request<Meta>(`${BASE}/meta`),
   timeline: () => request<TimelineDay[]>(`${BASE}/timeline`),
   query: (params: QueryParams, signal?: AbortSignal) => post<QueryResult>(`${BASE}/query?contours=false`, params, signal),

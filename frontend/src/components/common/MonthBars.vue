@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { fmt } from '@/lib/format'
 
 export interface MonthPoint {
@@ -16,17 +16,21 @@ const props = withDefaults(
     height?: number
     hint?: string
     format?: (value: number) => string
+    /** Курсор общий на несколько графиков одной оси: null — курсора нет, показываем пик. */
+    cursor?: number | null
+    /** Подписи годов рисует только нижний график связки. */
+    axis?: boolean
   }>(),
-  { color: 'var(--primary)', height: 52, hint: undefined, format: (value: number) => fmt.int(value) },
+  { color: 'var(--primary)', height: 68, hint: undefined, format: (value: number) => fmt.int(value), cursor: null, axis: true },
 )
 
-const active = ref<number | null>(null)
+const emit = defineEmits<{ 'update:cursor': [value: number | null] }>()
 
 const peak = computed(() => Math.max(0, ...props.items.map((i) => i.value)))
 const peakIndex = computed(() => props.items.findIndex((i) => i.value === peak.value))
 const total = computed(() => props.items.reduce((sum, i) => sum + i.value, 0))
-const cursor = computed(() => (active.value != null ? active.value : peakIndex.value))
-const current = computed<MonthPoint | null>(() => props.items[cursor.value] ?? null)
+const at = computed(() => (props.cursor != null ? props.cursor : peakIndex.value))
+const current = computed<MonthPoint | null>(() => props.items[at.value] ?? null)
 const empty = computed(() => !props.items.length || peak.value <= 0)
 
 /** Подписи годов под осью: первый месяц ряда и каждый январь. */
@@ -37,80 +41,94 @@ const years = computed(() =>
     .map(({ item, index }) => ({ label: item.month.slice(0, 4), index })),
 )
 
+/**
+ * Высота столбика пропорциональна значению без всякого пола: прежние 8 % минимума
+ * рисовали месяц с тремя точками почти таким же, как месяц с двумя тысячами.
+ * Ненулевому значению оставлен только зрительный минимум в 2 px, иначе его не видно.
+ */
 function heightOf(value: number): string {
-  if (peak.value <= 0) return '2px'
-  return value > 0 ? `${Math.max(8, (value / peak.value) * 100)}%` : '2px'
+  if (peak.value <= 0 || value <= 0) return '1px'
+  return `max(2px, ${(value / peak.value) * 100}%)`
+}
+
+function indexAt(event: PointerEvent): number | null {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  if (!rect.width || !props.items.length) return null
+  const raw = Math.floor(((event.clientX - rect.left) / rect.width) * props.items.length)
+  return Math.min(Math.max(raw, 0), props.items.length - 1)
 }
 
 function onMove(event: PointerEvent) {
-  const track = event.currentTarget as HTMLElement
-  const rect = track.getBoundingClientRect()
-  if (!rect.width || !props.items.length) return
-  const index = Math.floor(((event.clientX - rect.left) / rect.width) * props.items.length)
-  active.value = Math.min(Math.max(index, 0), props.items.length - 1)
+  emit('update:cursor', indexAt(event))
 }
 
 function onKey(event: KeyboardEvent) {
   const last = props.items.length - 1
   if (last < 0) return
-  const from = cursor.value < 0 ? 0 : cursor.value
+  const from = at.value < 0 ? 0 : at.value
   const next = { ArrowLeft: from - 1, ArrowRight: from + 1, Home: 0, End: last }[event.key]
   if (next == null) return
   event.preventDefault()
-  active.value = Math.min(Math.max(next, 0), last)
+  emit('update:cursor', Math.min(Math.max(next, 0), last))
 }
 </script>
 
 <template>
-  <div class="rounded-[20px] bg-surface-2 px-3.5 pb-3 pt-2.5">
-    <div class="flex items-baseline justify-between gap-2">
-      <span v-tip="props.hint" class="text-[11px] leading-tight text-muted-foreground">{{ props.title }}</span>
-      <span v-if="!empty" class="shrink-0 text-[11px] text-muted-foreground">
-        всего <span class="tabular-nums text-foreground">{{ props.format(total) }}</span> {{ props.unit }}
+  <figure>
+    <figcaption class="flex items-baseline justify-between gap-3">
+      <span v-tip="props.hint" class="text-[13px] text-muted-foreground" :class="props.hint && 'term'">{{ props.title }}</span>
+      <span v-if="!empty" class="shrink-0 text-[13px] text-muted-foreground">
+        всего <span class="tabular-nums font-medium text-foreground">{{ props.format(total) }}</span> {{ props.unit }}
       </span>
-    </div>
+    </figcaption>
 
-    <div v-if="empty" class="grid text-[12px] text-muted-foreground" :style="{ height: `${props.height + 26}px`, placeItems: 'center' }">
+    <div v-if="empty" class="mt-1 grid rounded-[14px] bg-surface-2 text-[13px] text-muted-foreground" :style="{ height: `${props.height + 22}px`, placeItems: 'center' }">
       За выбранный период данных нет
     </div>
 
     <template v-else>
-      <div class="mt-1 flex items-baseline justify-between gap-2 text-[12px]">
+      <div class="mt-0.5 flex items-baseline justify-between gap-3 text-[14px]">
         <span class="truncate font-medium">
-          {{ current ? fmt.month(current.month) : '-' }}
-          <span v-if="active === null" class="font-normal text-muted-foreground">- пик</span>
+          {{ current ? fmt.month(current.month) : '—' }}
+          <span v-if="props.cursor === null" class="font-normal text-muted-foreground">— пик</span>
         </span>
-        <span class="shrink-0 tabular-nums font-semibold" :style="{ color: props.color }">
-          {{ current ? props.format(current.value) : '-' }} <span class="text-[11px] font-normal text-muted-foreground">{{ props.unit }}</span>
+        <span class="shrink-0 font-semibold tabular-nums">
+          {{ current ? props.format(current.value) : '—' }}
+          <span class="text-[13px] font-normal text-muted-foreground">{{ props.unit }}</span>
         </span>
       </div>
 
       <div
-        class="mt-1.5 flex cursor-crosshair items-end gap-px border-b border-border/70 outline-none"
+        class="relative mt-2 flex cursor-crosshair items-end gap-0.5 border-b border-border outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         :style="{ height: `${props.height}px` }"
         role="img"
         tabindex="0"
-        :aria-label="`${props.title}: всего ${props.format(total)} ${props.unit}, пик ${current ? fmt.month(current.month) : ''}`"
+        :aria-label="`${props.title}: всего ${props.format(total)} ${props.unit}, пик ${fmt.month(props.items[peakIndex]?.month ?? '')}`"
         @pointermove="onMove"
-        @pointerleave="active = null"
+        @pointerleave="emit('update:cursor', null)"
         @keydown="onKey"
-        @blur="active = null"
+        @blur="emit('update:cursor', null)"
       >
         <div
           v-for="(item, index) in props.items"
           :key="item.month"
-          class="min-w-px flex-1 rounded-t-[3px] transition-[height,opacity] duration-500 ease-spring"
+          class="min-w-px flex-1 rounded-t-[4px] transition-[height] duration-500 ease-spring"
           :style="{
             height: heightOf(item.value),
             background: item.value > 0 ? props.color : 'var(--border)',
-            opacity: index === cursor ? 1 : active === null ? 0.72 : 0.38,
+            outline: index === at ? '2px solid var(--background)' : undefined,
           }"
+        />
+        <span
+          v-if="props.cursor !== null && at >= 0"
+          class="pointer-events-none absolute inset-y-0 w-px bg-foreground/45"
+          :style="{ left: `${((at + 0.5) / props.items.length) * 100}%` }"
         />
       </div>
 
-      <div class="relative mt-1 h-3.5 text-[10px] leading-none text-muted-foreground">
+      <div v-if="props.axis" class="relative mt-1.5 h-4 text-[13px] leading-none text-muted-foreground">
         <span v-for="year in years" :key="year.index" class="absolute tabular-nums" :style="{ left: `${(year.index / props.items.length) * 100}%` }">{{ year.label }}</span>
       </div>
     </template>
-  </div>
+  </figure>
 </template>

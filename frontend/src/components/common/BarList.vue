@@ -26,27 +26,34 @@ const total = computed(() => props.items.reduce((sum, item) => sum + item.value,
 const peak = computed(() => Math.max(1, ...props.items.map((item) => item.value)))
 const rows = computed(() => [...props.items].sort((a, b) => b.value - a.value).slice(0, props.limit))
 
+/**
+ * Доля от всех живёт в подсказке, а не в третьей колонке: полоса уже кодирует
+ * величину, число её называет — процент был третьим изображением одного и того же.
+ */
 function tipFor(row: BarListItem): string {
-  const numbers = `${props.unit}: ${props.format(row.value)}, это ${fmt.pct(total.value ? row.value / total.value : 0)} от всех`
+  const numbers = `${props.format(row.value)} ${props.unit}, это ${fmt.pct(total.value ? row.value / total.value : 0)} от всех`
   return row.hint ? `${row.hint}. ${numbers}` : `${row.label}: ${numbers}`
 }
 </script>
 
 <template>
-  <div v-if="rows.length">
-    <div class="label-caps mb-1.5"><span v-tip="props.hint" :class="props.hint && 'term'">{{ props.title }}</span></div>
-    <div class="space-y-1">
-      <div
-        v-for="row in rows"
-        :key="row.key"
-        v-tip="tipFor(row)"
-        class="relative flex items-center gap-2 overflow-hidden rounded-lg px-2 py-1 text-[12.5px]"
-      >
-        <span class="absolute inset-y-0 left-0 rounded-lg transition-[width] duration-700 ease-spring" :style="{ width: `${(row.value / peak) * 100}%`, background: props.color, opacity: 0.22 }" />
-        <span class="relative min-w-0 flex-1 truncate text-muted-foreground"><span :class="row.hint && 'term'">{{ row.label }}</span></span>
-        <span class="relative shrink-0 tabular-nums font-medium">{{ props.format(row.value) }}</span>
-        <span class="relative w-11 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{{ fmt.pct(total ? row.value / total : 0) }}</span>
+  <figure v-if="rows.length">
+    <figcaption class="mb-2 text-[13px] text-muted-foreground">
+      <span v-tip="props.hint" :class="props.hint && 'term'">{{ props.title }}</span>
+    </figcaption>
+    <div class="space-y-2.5">
+      <div v-for="row in rows" :key="row.key" v-tip="tipFor(row)">
+        <div class="flex items-baseline gap-3 text-[14px]">
+          <span class="min-w-0 flex-1 truncate"><span :class="row.hint && 'term'">{{ row.label }}</span></span>
+          <span class="shrink-0 font-medium tabular-nums">{{ props.format(row.value) }}</span>
+        </div>
+        <div class="mt-1 h-1 rounded-full bg-surface-3">
+          <div
+            class="h-full rounded-full transition-[width] duration-700 ease-spring"
+            :style="{ width: `${Math.max(2, (row.value / peak) * 100)}%`, background: props.color }"
+          />
+        </div>
       </div>
     </div>
-  </div>
+  </figure>
 </template>

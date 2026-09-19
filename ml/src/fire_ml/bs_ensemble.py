@@ -66,8 +66,8 @@ class BurnSeverityEnsemble:
             nets.append((group["tag"], net.to(self._device).eval()))
         return nets
 
-    def _cnn_proba(self, chip: BsChip) -> np.ndarray:
-        """Среднее по архитектурам от средних по фолдам: так же усреднялись OOF при обучении стекинга."""
+    def _cnn_proba(self, chip: BsChip) -> dict[str, np.ndarray]:
+        """По каждой архитектуре среднее по её фолдам: второй уровень получает сети отдельными признаками."""
         torch = self._torch
         batch = torch.from_numpy(chip_tensor(chip)[None]).to(self._device)
         by_tag: dict[str, list] = {}
@@ -84,8 +84,7 @@ class BurnSeverityEnsemble:
                     proba = torch.flip(proba, dims=(-1,)) if k >= 4 else proba
                     total += torch.rot90(proba, -(k % 4), dims=(-2, -1))
                 by_tag.setdefault(tag, []).append(total[0] / len(TTA))
-        per_tag = [torch.stack(items).mean(0) for items in by_tag.values()]
-        return torch.stack(per_tag).mean(0).cpu().numpy()
+        return {tag: torch.stack(items).mean(0).cpu().numpy() for tag, items in by_tag.items()}
 
     def predict(self, chip: BsChip) -> BsPrediction:
         features = compute_features(chip)
@@ -95,14 +94,20 @@ class BurnSeverityEnsemble:
             table = np.stack([features[name][candidates] for name in self._features], axis=1)
             proba = self._booster.predict(table, num_threads=GBM_THREADS)
             if self._stack is not None:
-                cnn = self._cnn_proba(chip)
-                burn = 1.0 - cnn[0]
-                context = [
-                    ndimage.uniform_filter(burn, window, mode="nearest")
-                    for window in self._stack_config["windows"]
-                ]
-                raw = [features[name] for name in self._stack_config["raw"]]
-                layers = np.stack([layer[candidates] for layer in (*cnn, *context, *raw)], axis=1)
+                nets = self._cnn_proba(chip)
+                layers = []
+                for tag in self._stack_config["cnn_tags"]:
+                    burn = 1.0 - nets[tag][0]
+                    layers += [*nets[tag]]
+                    layers += [
+                        ndimage.uniform_filter(burn, window, mode="nearest")
+                        for window in self._stack_config["windows"]
+                    ]
+                rows, cols = np.mgrid[0 : candidates.shape[0], 0 : candidates.shape[1]].astype(np.float32)
+                rows, cols = rows / (candidates.shape[0] - 1) - 0.5, cols / (candidates.shape[1] - 1) - 0.5
+                layers += [np.hypot(rows, cols), np.abs(rows), np.abs(cols)]
+                layers += [features[name] for name in self._stack_config["raw"]]
+                layers = np.stack([layer[candidates] for layer in layers], axis=1)
                 proba = self._stack.predict(np.concatenate([proba, layers], axis=1), num_threads=GBM_THREADS)
             severity[candidates] = (proba * self._class_weights).argmax(1)
         return BsPrediction(severity=severity, dnbr=features["d_nbr"])

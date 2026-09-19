@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronsLeftRight, Layers, RefreshCw, X } from '@lucide/vue'
+import { onKeyStroke } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
 import BubbleTabs from '@/components/common/BubbleTabs.vue'
 import MorphLoader from '@/components/common/MorphLoader.vue'
@@ -26,7 +27,7 @@ const COMPOSITES = [
 ]
 
 const scene = shallowRef<SceneSummary | null>(null)
-const composite = ref<Composite>('swir')
+const composite = ref<Composite>('rgb')
 const showSeverity = ref(true)
 const viewer = ref<HTMLElement | null>(null)
 const loaded = ref(0)
@@ -66,6 +67,9 @@ function onPointer(event: PointerEvent) {
   viewer.value.style.setProperty('--split', `${ratio * 100}%`)
 }
 
+// Карточка перекрывает карту, поэтому закрывается Escape, как и остальные слои.
+onKeyStroke('Escape', () => { if (ui.compareSceneId && !ui.pipelineOpen) ui.compareSceneId = null })
+
 async function reprocess() {
   if (!scene.value) return
   const result = await api.reprocess(scene.value.id)
@@ -75,11 +79,11 @@ async function reprocess() {
 </script>
 
 <template>
-  <section class="panel flex w-[min(560px,94vw)] flex-col gap-3 p-4" aria-label="Сравнение снимков до и после">
+  <section class="panel flex w-[min(720px,94vw)] flex-col gap-3 p-4" role="dialog" aria-modal="false" aria-label="Сравнение снимков до и после">
     <header class="flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <div class="truncate text-sm font-semibold">{{ scene?.id ?? 'Загрузка сцены' }}</div>
-        <div v-if="scene?.date_pre && scene.date_post" class="text-xs text-muted-foreground">{{ fmt.date(scene.date_pre) }} → {{ fmt.date(scene.date_post) }} · облачность {{ fmt.pct(scene.cloud_frac) }}</div>
+        <div class="truncate text-sm font-semibold">{{ scene ? `Сцена ${scene.id}` : "Загрузка сцены" }}</div>
+        <div v-if="scene?.date_pre && scene.date_post" class="text-xs text-muted-foreground">{{ fmt.date(scene.date_pre) }} → {{ fmt.date(scene.date_post) }}, облачность {{ fmt.pct(scene.cloud_frac) }}</div>
       </div>
       <div class="flex shrink-0 items-center gap-1">
         <Button v-tip="'Прогнать сцену через конвейер заново'" variant="ghost" size="icon-sm" aria-label="Обработать сцену заново" @click="reprocess"><RefreshCw /></Button>
@@ -89,7 +93,7 @@ async function reprocess() {
 
     <div
       ref="viewer"
-      class="relative mx-auto aspect-square h-[min(46dvh,440px)] touch-none overflow-hidden rounded-[24px] bg-surface-3 select-none [--split:50%]"
+      class="relative mx-auto aspect-square h-[min(58dvh,560px)] touch-none overflow-hidden rounded-[24px] bg-surface-3 select-none [--split:50%]"
       :class="isPair && 'cursor-ew-resize'"
       @pointerdown="isPair && onPointer($event)"
       @pointermove="isPair && onPointer($event)"
@@ -124,11 +128,19 @@ async function reprocess() {
 
     <div v-if="isBurn && stats.burn_ha != null" class="grid grid-cols-4 gap-1.5 text-center text-xs">
       <div class="rounded-2xl bg-surface-2 py-2"><div class="text-sm font-semibold tabular-nums">{{ fmt.ha(stats.burn_ha) }}</div><div class="text-muted-foreground">га гари</div></div>
+      <!--
+        Число набрано цветом текста, а степень несёт точка рядом с подписью:
+        покрашенная цифра давала контраст 1.68 к фону у слабой степени при
+        пороге 4.5 — цвет данных не должен подменять цвет текста.
+      -->
       <div v-for="(value, index) in stats.severity_ha ?? []" :key="index" class="rounded-2xl bg-surface-2 py-2">
-        <div class="text-sm font-semibold tabular-nums" :style="{ color: `var(--sev-${index + 1})` }">{{ fmt.ha(value) }}</div>
-        <div class="text-muted-foreground">{{ ['слабая', 'средняя', 'сильная'][index] }}</div>
+        <div class="text-sm font-semibold tabular-nums">{{ fmt.ha(value) }}</div>
+        <div class="flex items-center justify-center gap-1.5 text-muted-foreground">
+          <i class="size-1.5 shrink-0 rounded-full" :style="{ background: `var(--sev-${index + 1})` }" />
+          {{ ['слабая', 'средняя', 'сильная'][index] }}
+        </div>
       </div>
     </div>
-    <p v-if="iou != null" class="text-center text-[11px] text-muted-foreground">IoU контура с эталоном: {{ iou.toFixed(3) }} · модель {{ scene?.model_name }}</p>
+    <p v-if="iou != null" class="text-center text-[13px] text-muted-foreground"><span v-tip="`Модель: ${scene?.model_name}`" class="term">IoU контура с эталоном</span>: {{ fmt.score(iou) }}</p>
   </section>
 </template>

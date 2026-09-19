@@ -76,9 +76,7 @@ def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
         ("Территория", "Проекция расчёта площадей", place["area_crs"], ""),
         ("Территория", "Покрыто территорией мониторинга", place["monitoring_area"]["covered_km2"], "км²"),
     ]
-    rows += [
-        ("Субъекты РФ", s["name"], s["area_km2"], "км²") for s in place["subjects"]
-    ]
+    rows += [("Субъекты РФ", s["name"], s["area_km2"], "км²") for s in place["subjects"]]
     rows += [
         ("Запрос", "Период с", report["query"]["date_from"], ""),
         ("Запрос", "Период по", report["query"]["date_to"], ""),
@@ -119,12 +117,12 @@ def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
     return rows
 
 
-def export_report(report: dict[str, Any], fmt: str) -> bytes:
+def export_report(report: dict[str, Any], fmt: str, tz_offset_min: int = 0) -> bytes:
     if fmt == "json":
         return json.dumps(report, ensure_ascii=False, indent=2).encode()
     if fmt == "pdf":
         try:
-            return pdf_report.render(report)
+            return pdf_report.render(report, tz_offset_min)
         except pdf_report.PdfUnavailableError as exc:
             raise ExportUnavailableError(str(exc)) from exc
     rows = _report_rows(report)

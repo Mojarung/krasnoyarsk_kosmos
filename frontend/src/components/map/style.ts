@@ -24,6 +24,7 @@ export const SRC = {
   sources: 'persistent-sources',
   zones: 'zones',
   scene: 'scene-overlay',
+  event: 'event-overlay',
 } as const
 
 export const LAYER = {
@@ -40,13 +41,24 @@ export const LAYER = {
 } as const
 
 export const SEVERITY_ZOOM = 10
-const FOCUS_BOUNDS = [
-  [15, 30],
-  [80, 30],
-  [80, 68],
-  [15, 68],
-  [15, 30],
-]
+/**
+ * Внешний контур затемнения — весь мир, а не рамка вокруг зоны. Прежний
+ * прямоугольник 15-80° в.д., 30-68° с.ш. на рабочем зуме не было видно, но
+ * стоило отдалить до глобуса, и он читался серым клином с прямыми краями.
+ *
+ * Рёбра разбиты на шаги: на глобусе отрезок между далёкими точками идёт по
+ * дуге большого круга, поэтому одна линия от полюса до полюса выгнулась бы
+ * внутрь. Полюса подрезаны до ±89,9°, чтобы не ловить вырождение проекции.
+ */
+const FOCUS_BOUNDS = ((step = 10) => {
+  const ring: number[][] = []
+  for (let lon = -180; lon <= 180; lon += step) ring.push([lon, -89.9])
+  for (let lat = -89.9; lat <= 89.9; lat += step) ring.push([180, lat])
+  for (let lon = 180; lon >= -180; lon -= step) ring.push([lon, 89.9])
+  for (let lat = 89.9; lat >= -89.9; lat -= step) ring.push([-180, lat])
+  ring.push([-180, -89.9])
+  return ring
+})()
 
 function signedArea(ring: number[][]): number {
   let sum = 0
@@ -200,8 +212,20 @@ export function overlayLayers(): AddLayerObject[] {
       source: SRC.hotspots,
       filter: ['==', ['get', 'kind'], 'fire'],
       paint: {
-        // Размер ореола несёт мощность излучения: корень из FRP, чтобы площадь пятна росла с ней линейно.
-        'circle-radius': ['*', ['interpolate', ['linear'], ['zoom'], 4, 5, 9, 12, 13, 26], POWER_SCALE],
+        /*
+         * Размер ореола несёт мощность излучения: корень из FRP, чтобы площадь
+         * пятна росла с ней линейно. Множитель стоит в точках интерполяции, а не
+         * снаружи: MapLibre 6 принимает `zoom` только как вход верхнеуровневого
+         * interpolate, и обёрнутое в `*` выражение роняло весь слой.
+         */
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          4, ['*', 5, POWER_SCALE],
+          9, ['*', 12, POWER_SCALE],
+          13, ['*', 26, POWER_SCALE],
+        ],
         'circle-color': '#f7774a',
         'circle-blur': 1,
         'circle-opacity': 0.42,

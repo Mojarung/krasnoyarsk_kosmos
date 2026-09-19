@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — направление 05 «Диспетчерская»</title>
+<style>
+  :root{
+    --bg:#0f1417; --deck:#151c20; --deck2:#1b2429; --line:#26333a;
+    --fg:#e6edf0; --muted:#9fb0b8; --dim:#8296a0;
+    --sig:#4ec9c0;                       /* не-огненный акцент интерфейса */
+    --sev1:#e5bf3a; --sev2:#ef8a34; --sev3:#dc4132; /* только данные */
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:400 14px/1.45 "Inter Tight","Segoe UI",system-ui,sans-serif}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+
+  .screen{display:grid;grid-template-rows:auto 1fr auto;height:100dvh;overflow:hidden}
+
+  /* ---------- строка дежурства ---------- */
+  .duty{display:flex;align-items:center;gap:16px;height:46px;padding:12px 18px;
+    background:var(--deck);border-bottom:1px solid var(--line)}
+  .duty .b{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-0.01em}
+  .duty .b i{width:8px;height:8px;border-radius:50%;background:var(--sig);flex:none;
+    box-shadow:0 0 0 3px rgb(78 201 192 / .18)}
+  .duty .sep{width:1px;height:20px;background:var(--line)}
+  .duty .kv{font-size:14px;color:var(--dim)}
+  .duty .kv b{color:var(--fg);font-weight:600;margin-left:6px}
+  .duty .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .live{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--sig)}
+  .live i{width:6px;height:6px;border-radius:50%;background:var(--sig)}
+
+  /* ---------- рабочее поле ---------- */
+  .work{display:grid;grid-template-columns:1fr 312px;min-height:0}
+  .map{position:relative;min-width:0}
+  .map svg{position:absolute;inset:0;width:100%;height:100%}
+
+  .totalcard{position:absolute;left:20px;top:18px;background:rgb(15 20 23 / .84);
+    border:1px solid var(--line);padding:14px 18px 15px;min-width:230px}
+  .totalcard .cap{font-size:13px;color:var(--dim)}
+  .totalcard .v{font-size:38px;font-weight:600;line-height:1.05;margin-top:3px}
+  .totalcard .v s{text-decoration:none;font-size:16px;color:var(--muted);margin-left:6px;font-weight:400}
+  .totalcard .split{display:flex;height:6px;margin-top:12px;gap:2px}
+  .totalcard .split i{display:block}
+  .totalcard .keys{display:flex;gap:14px;margin-top:8px;font-size:13px;color:var(--muted)}
+  .totalcard .keys span{display:flex;align-items:center;gap:6px}
+  .totalcard .keys i{width:7px;height:7px;flex:none}
+
+  /* очередь инцидентов */
+  .queue{background:var(--deck);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;min-height:0}
+  .qhead{display:flex;align-items:baseline;gap:9px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .qhead b{font-size:14px;font-weight:600}
+  .qhead span{margin-left:auto;font-size:13px;color:var(--dim)}
+  .qlist{flex:1;min-height:0;overflow:auto}
+  .item{display:grid;grid-template-columns:4px 1fr auto;gap:12px;align-items:center;
+    padding:12px 16px 12px 0;border-bottom:1px solid #1e282d;cursor:pointer}
+  .item:hover{background:var(--deck2)}
+  .item .mark{width:4px;align-self:stretch}
+  .item .who{min-width:0}
+  .item .who b{display:block;font-size:14px;font-weight:600;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .item .who span{font-size:13px;color:var(--dim)}
+  .item .area{text-align:right;font-size:16px;font-weight:600;padding-right:16px}
+  .item .area s{display:block;text-decoration:none;font-size:13px;color:var(--dim);font-weight:400}
+
+  /* ---------- нижняя строка состояния ---------- */
+  .status{display:flex;align-items:stretch;height:58px;background:var(--deck);
+    border-top:1px solid var(--line)}
+  .st{display:flex;flex-direction:column;justify-content:center;gap:2px;
+    padding:9px 20px;border-right:1px solid var(--line);min-width:132px}
+  .st .k{font-size:13px;color:var(--dim)}
+  .st .v{font-size:19px;font-weight:600}
+  .st .v.ok{color:var(--sig)}
+  .time{flex:1;display:flex;align-items:center;gap:14px;padding:0 20px}
+  .time .e{font-size:13px;color:var(--dim)}
+  .time .line{position:relative;flex:1;height:3px;background:#26333a}
+  .time .line i{position:absolute;inset-block:0;left:16%;right:23%;background:var(--sig)}
+  .time .line b{position:absolute;top:50%;width:11px;height:11px;margin-top:-5.5px;
+    background:var(--deck);border:2px solid var(--sig)}
+
+  @media (max-width:900px){
+    .work{grid-template-columns:1fr}
+    .queue{display:none}
+    .status{overflow:auto}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <div class="duty">
+    <span class="b"><i></i>Кордон</span>
+    <span class="sep"></span>
+    <span class="kv">Территория<b>Нижнее Поволжье и Подонье</b></span>
+    <span class="kv">Период<b class="num">01.04 — 31.10</b></span>
+    <span class="right">
+      <span class="live"><i></i>обработано 224 из 224</span>
+    </span>
+  </div>
+
+  <div class="work">
+    <div class="map">
+      <svg viewBox="0 0 1100 760" preserveAspectRatio="xMidYMid slice" aria-label="Оперативная карта очагов">
+        <defs>
+          <pattern id="g" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M80 0H0v80" fill="none" stroke="#1a2429" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="1100" height="760" fill="#121a1e"/>
+        <path d="M0 340 Q160 286 320 336 T620 312 Q760 282 900 336 T1100 314 V760 H0Z" fill="#162025"/>
+        <path d="M0 520 Q200 478 400 518 T800 498 Q980 468 1100 512 V760 H0Z" fill="#18242a"/>
+        <rect width="1100" height="760" fill="url(#g)"/>
+        <path d="M-20 210 C160 238 240 320 400 346 S680 406 880 362 1080 404 1120 392" fill="none" stroke="#1f333c" stroke-width="7"/>
+        <g>
+          <path d="M104 18 C150 6 206 24 224 62 C238 92 214 110 228 136 C240 160 212 190 170 194 C132 198 116 176 86 180 C50 185 22 162 20 128 C18 96 46 86 42 62 C38 36 66 28 104 18 Z" transform="translate(252,262) scale(.66) rotate(-9)" fill="#dc4132" fill-opacity=".34" stroke="#dc4132" stroke-width="1.6"/>
+          <path d="M78 10 C118 2 160 20 172 50 C182 76 158 90 168 112 C176 132 148 148 112 146 C82 144 74 128 50 130 C24 132 8 112 12 86 C16 62 38 56 38 38 C38 20 52 15 78 10 Z" transform="translate(676,166) scale(.66) rotate(11)" fill="#ef8a34" fill-opacity=".3" stroke="#ef8a34" stroke-width="1.6"/>
+          <path d="M64 8 C98 2 132 18 140 44 C146 66 126 76 134 94 C140 110 116 124 86 122 C62 120 56 108 36 110 C16 112 6 94 10 74 C14 54 30 50 30 34 C30 18 42 12 64 8 Z" transform="translate(812,514) scale(.64) rotate(-13)" fill="#e5bf3a" fill-opacity=".28" stroke="#e5bf3a" stroke-width="1.6"/>
+          <path d="M52 6 C80 2 108 14 114 36 C119 54 102 62 108 76 C113 90 92 96 68 95 C48 94 44 84 28 86 C12 88 4 72 8 56 C12 40 24 37 24 26 C24 14 34 9 52 6 Z" transform="translate(158,536) scale(.68) rotate(7)" fill="#ef8a34" fill-opacity=".26" stroke="#ef8a34" stroke-width="1.6"/>
+        </g>
+        <g fill="#ffc9a8">
+          <circle cx="366" cy="352" r="2.6"/><circle cx="388" cy="368" r="2"/><circle cx="348" cy="374" r="1.8"/>
+          <circle cx="762" cy="244" r="2.6"/><circle cx="784" cy="262" r="1.8"/>
+          <circle cx="880" cy="588" r="2"/><circle cx="222" cy="602" r="2"/>
+        </g>
+      </svg>
+
+      <div class="totalcard">
+        <div class="cap">Пройдено огнём</div>
+        <div class="v num">4 812<s>га</s></div>
+        <div class="split">
+          <i style="flex:44;background:var(--sev1)"></i>
+          <i style="flex:33;background:var(--sev2)"></i>
+          <i style="flex:23;background:var(--sev3)"></i>
+        </div>
+        <div class="keys">
+          <span><i style="background:var(--sev1)"></i>2 140</span>
+          <span><i style="background:var(--sev2)"></i>1 605</span>
+          <span><i style="background:var(--sev3)"></i>1 067</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="queue">
+      <div class="qhead"><b>Контуры</b><span class="num">37</span></div>
+      <div class="qlist">
+        <div class="item"><i class="mark" style="background:var(--sev3)"></i>
+          <span class="who"><b>Сальский</b><span class="num">12.08, сильная</span></span>
+          <span class="area num">612<s>га</s></span></div>
+        <div class="item"><i class="mark" style="background:var(--sev2)"></i>
+          <span class="who"><b>Палласовский</b><span class="num">28.07, средняя</span></span>
+          <span class="area num">489<s>га</s></span></div>
+        <div class="item"><i class="mark" style="background:var(--sev2)"></i>
+          <span class="who"><b>Харабалинский</b><span class="num">19.07, средняя</span></span>
+          <span class="area num">356<s>га</s></span></div>
+        <div class="item"><i class="mark" style="background:var(--sev1)"></i>
+          <span class="who"><b>Яшкульский</b><span class="num">04.07, слабая</span></span>
+          <span class="area num">281<s>га</s></span></div>
+        <div class="item"><i class="mark" style="background:var(--sev1)"></i>
+          <span class="who"><b>Новоузенский</b><span class="num">27.06, слабая</span></span>
+          <span class="area num">203<s>га</s></span></div>
+        <div class="item"><i class="mark" style="background:var(--sev2)"></i>
+          <span class="who"><b>Ремонтненский</b><span class="num">21.06, средняя</span></span>
+          <span class="area num">174<s>га</s></span></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="status">
+    <div class="st"><span class="k">Очаги</span><span class="v num">128</span></div>
+    <div class="st"><span class="k">Термоточки</span><span class="v num">3 412</span></div>
+    <div class="st"><span class="k">Отсеяно</span><span class="v num">271</span></div>
+    <div class="st"><span class="k">Выездов сэкономлено</span><span class="v num ok">19</span></div>
+    <div class="time">
+      <span class="e num">01.04</span>
+      <span class="line"><i></i><b style="left:16%"></b><b style="right:23%;margin-right:-5.5px"></b></span>
+      <span class="e num">31.10</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Timer, TriangleAlert } from '@lucide/vue'
+import { TriangleAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import RingGauge from '@/components/common/RingGauge.vue'
 import StatRows, { type StatRow } from '@/components/common/StatRows.vue'
@@ -7,17 +7,14 @@ import { fmt } from '@/lib/format'
 import { TERMS } from '@/lib/glossary'
 import type { Report } from '@/lib/types'
 import { useLiveStore } from '@/stores/live'
-import { useQueryStore } from '@/stores/query'
 
 const props = defineProps<{ report: Report }>()
 const live = useLiveStore()
-const query = useQueryStore()
 
 const SCORE_HINT = 'Score = 0.35 F1_af + 0.35 IoU_burn + 0.30 mIoU_sev, микро-усреднение по пикселям, как в постановке кейса'
 const KIND_LABELS: Record<string, string> = { af: 'Горение, VIIRS', bs: 'Гари, Sentinel' }
 
 const quality = computed(() => props.report.quality)
-const models = computed(() => query.meta?.data.models ?? [])
 const details = computed<StatRow[]>(() => {
   const q = quality.value
   if (!q) return []
@@ -48,10 +45,12 @@ const pipeline = computed<StatRow[]>(() =>
         <span class="display-number text-[38px] text-primary">{{ fmt.score(quality.score) }}</span>
         <span class="text-xs text-muted-foreground">итоговый Score из 1</span>
       </div>
+      <!-- Метрика модели это не данные о пожаре, поэтому кольца в интерфейсном
+           акценте: огненная шкала зарезервирована за площадью и степенью. -->
       <div class="mt-3 grid grid-cols-3 gap-2">
-        <RingGauge v-tip="`${TERMS.f1}. Вес в итоговом Score 0,35`" :value="quality.f1_af" label="F1 горение" color="var(--fire)" />
-        <RingGauge v-tip="`${TERMS.iou}. Здесь сравниваются контуры гарей, вес в итоговом Score 0,35`" :value="quality.iou_burn" label="IoU гарь" color="var(--sev-2)" />
-        <RingGauge v-tip="`Средний IoU по трём степеням поражения. ${TERMS.iou}. Вес в итоговом Score 0,30`" :value="quality.miou_sev" label="mIoU степени" color="var(--sev-1)" />
+        <RingGauge v-tip="`${TERMS.f1}. Вес в итоговом Score 0,35`" :value="quality.f1_af" label="F1 горение" color="var(--primary)" />
+        <RingGauge v-tip="`${TERMS.iou}. Здесь сравниваются контуры гарей, вес в итоговом Score 0,35`" :value="quality.iou_burn" label="IoU гарь" color="var(--primary)" />
+        <RingGauge v-tip="`Средний IoU по трём степеням поражения. ${TERMS.iou}. Вес в итоговом Score 0,30`" :value="quality.miou_sev" label="mIoU степени" color="var(--primary)" />
       </div>
     </div>
     <p v-else class="rounded-[22px] bg-surface-2 p-4 text-[13px] leading-snug text-muted-foreground">В запросе нет сцен с эталонной маской, поэтому сравнить модели не с чем. Выберите территорию и период, где есть размеченные сцены.</p>
@@ -65,11 +64,6 @@ const pipeline = computed<StatRow[]>(() =>
     <StatRows v-if="details.length" title="По компонентам" :rows="details" />
     <div class="space-y-4">
     <StatRows v-if="pipeline.length" title="Скорость конвейера" :rows="pipeline" />
-
-    <div v-if="models.length" class="flex items-start gap-2 text-xs text-muted-foreground">
-      <Timer class="mt-0.5 size-3.5 shrink-0" />
-      <span>Модели в работе: {{ models.join(', ') }}</span>
-    </div>
-    </div>
+</div>
   </div>
 </template>

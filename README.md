@@ -4,7 +4,14 @@
 
 ## Запуск сервиса
 
-Нужен Docker с Compose. Выданный набор чипов положите в `DATA/fire-train-renamed/train` (внутри каталоги `af/` и `bs/`), другой путь задаётся переменной `DATA_PATH`.
+Нужен Docker с Compose. Выданный архив распакуйте в `DATA/`:
+
+```bash
+unzip "Мониторинг DATA.zip" -d DATA/
+tar -xf "DATA/Мониторинг DATA/fire-train-renamed.tar" -C DATA/
+```
+
+Получится `DATA/train/` с каталогами `af/` и `bs/` внутри — это и есть путь по умолчанию. Другая раскладка задаётся переменной `DATA_PATH`.
 
 ```bash
 docker compose up --build
@@ -48,6 +55,7 @@ flowchart LR
 - Справка: суммарная площадь, распределение по трём степеням и по типам покрова, число очагов, доля отфильтрованных срабатываний, погода в момент детекции. Форматы JSON, CSV, XLSX, PDF.
 - Паспорт территории в каждой выгрузке: название местности, охваченные субъекты РФ с долями, координаты, площадь запроса и доля, покрытая данными. Выводится из геометрии запроса, поэтому одинаков в интерфейсе и в ответе REST API. PDF дополнительно несёт обзорную карту с границей мониторинга, контуром запроса и пятью крупнейшими гарями.
 - Сравнение снимков «до» и «после» шторкой: видимый диапазон, SWIR, радар Sentinel-1, dNBR, наложение степеней.
+- [Паспорт пожара](docs/fire-passport.md): термоточки и гарь в одной истории, объяснение предполагаемой связи, степени поражения, предварительное восстановление и JSON. Открывается из сводки или кликом по объекту на карте.
 - Проигрывание периода по дням на шкале времени.
 - Метрика кейса `Score = 0.35*F1_af + 0.35*IoU_burn + 0.30*mIoU_sev` прямо в интерфейсе, с микро-усреднением по сценам запроса, для которых есть эталонная маска. Удобно смотреть, где модель ошибается по территории.
 - План лесовосстановления по степени и типу покрова: сколько гектаров восстановится само, сколько требует посадок и входит в расчёт ущерба. Ставки в `backend/src/firewatch/assets/restoration_rules.json` условные, замените региональными.
@@ -62,12 +70,12 @@ flowchart LR
 | `POST /api/v1/query` | термоточки, контуры гарей и справка одним ответом |
 | `GET, POST /api/v1/hotspots` | термоточки, `format=geojson,csv`, фильтр `kind` |
 | `GET, POST /api/v1/burns` | контуры (`layer=contours`) или степени (`layer=severity`), `format=geojson,shp,gpkg,kml` |
-| `GET, POST /api/v1/report` | справка, `format=json,csv,xlsx,pdf` |
+| `GET, POST /api/v1/report` | справка, `format=json,csv,xlsx,pdf`; `tz_offset` — пояс выгрузки в минутах, по нему подписано время в шапке PDF |
 | `GET, POST /api/v1/profile` | профиль территории за все годы: годы, сезонность, повторяемость горимости |
 | `POST /api/v1/scenes` | загрузка чипа, ответ содержит `job_id` |
 | `GET /api/v1/stream` | SSE: задания конвейера и алерты |
 | `GET /api/v1/metrics/quality` | метрика кейса по всем сценам с эталоном |
-| `GET /api/v1/tiles/burns/{z}/{x}/{y}.mvt` | векторные тайлы гарей |
+| `GET /api/v1/tiles/burns/{z}/{x}/{y}.mvt` | векторные тайлы гарей; `clip` — id региона или `p:lon,lat;...`, отдаёт только гари выбранной области |
 | `/ogc` | OGC API Features: `hotspots`, `burn_contours`, `burn_severity` |
 
 ```bash
@@ -198,10 +206,12 @@ uv run python validate_submission.py --submission submission.csv --template DATA
 ## Структура входных данных
 
 ```
-DATA/fire-train-renamed/train/
-  af/  meta.csv  viirs/*_VIIRS_I1-I5.tif  _aux/*_AUX.tif  masks/*_MASK.tif
-  bs/  meta.csv  sentinel2_pre/  sentinel2_post/  sentinel1_pre/  sentinel1_post/  _aux/  masks/
+DATA/train/
+  af/  meta.csv  viirs/*_VIIRS_I1-I5.tif  aux/*_AUX.tif  masks/*_MASK.tif
+  bs/  meta.csv  sentinel2_pre/  sentinel2_post/  sentinel1_pre/  sentinel1_post/  aux/  masks/
 ```
+
+Вспомогательный растр читается и из `aux/`, и из `_aux/` — в разных сборках набора каталог назывался по-разному.
 
 Геопривязка берётся из самих GeoTIFF. Чип без CRS (тестовый, обезличенный) сервис отклонит с кодом 422: положить его на карту нельзя. Маски необязательны, с ними считается качество на эталоне.
 

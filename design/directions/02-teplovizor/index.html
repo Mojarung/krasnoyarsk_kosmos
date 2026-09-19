@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — направление 02 «Тепловизор»</title>
+<style>
+  :root{
+    --bg:#121315; --panel:#191b1e; --panel2:#1f2226; --line:#2b2f34;
+    --fg:#e8eaec; --muted:#a8afb6; --dim:#8f969d;
+    --sev1:#f2c53d; --sev2:#f0842b; --sev3:#d93b2b; --fire:#ff6b35;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:400 13px/1.4 "IBM Plex Sans","Segoe UI",system-ui,sans-serif}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+    font-variant-numeric:tabular-nums}
+
+  .screen{display:grid;grid-template-columns:296px 1fr;height:100dvh;overflow:hidden}
+
+  /* ---------- левая приборная рейка ---------- */
+  .rail{background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;min-height:0}
+  .id{display:flex;align-items:center;gap:9px;padding:15px 16px;border-bottom:1px solid var(--line)}
+  .id .dot{width:7px;height:7px;background:var(--fire);border-radius:50%;flex:none;
+    box-shadow:0 0 0 3px rgb(255 107 53 / .16)}
+  .id b{font-size:13px;font-weight:600;letter-spacing:.02em}
+  .id span{margin-left:auto;font-size:12px;color:var(--dim);letter-spacing:.09em}
+
+  .readout{padding:16px;border-bottom:1px solid var(--line)}
+  .lab{font-size:12px;color:var(--dim);letter-spacing:.1em;text-transform:none}
+  .big{font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:40px;font-weight:500;line-height:1;letter-spacing:-0.02em;margin-top:7px}
+  .big s{text-decoration:none;font-size:15px;color:var(--muted);margin-left:5px}
+
+  /* шкала степеней — как градуировка прибора */
+  .scale{margin-top:16px}
+  .scale .strip{display:flex;height:22px;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .scale .strip i{display:block;height:100%}
+  .ticks{display:flex;margin-top:5px}
+  .ticks div{flex:1;font-size:12px;color:var(--muted);position:relative;padding-left:7px}
+  .ticks div::before{content:"";position:absolute;left:0;top:2px;width:1px;height:8px;background:var(--line)}
+  .ticks b{display:block;color:var(--fg);font-weight:500;font-size:12px;margin-top:2px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr}
+  .cell{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .cell + .cell{border-left:1px solid var(--line)}
+  .cell .v{font-size:22px;font-weight:500;margin-top:5px}
+  .cell .v.warn{color:var(--fire)}
+
+  .log{flex:1;min-height:0;overflow:auto;padding:14px 16px}
+  .log .lab{margin-bottom:9px}
+  .entry{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid #22262a}
+  .entry:last-child{border-bottom:0}
+  .entry .t{font-size:12px;color:var(--dim);width:52px;flex:none}
+  .entry .n{font-size:13px;flex:1}
+  .entry .a{font-size:13px;font-weight:500}
+
+  /* ---------- сенсорное поле ---------- */
+  .feed{position:relative;min-width:0}
+  .feed svg{position:absolute;inset:0;width:100%;height:100%}
+
+  .hud{position:absolute;inset:0;pointer-events:none}
+  .corner{position:absolute;width:20px;height:20px;border:1px solid #3a4046}
+  .corner.tl{top:14px;left:14px;border-right:0;border-bottom:0}
+  .corner.tr{top:14px;right:14px;border-left:0;border-bottom:0}
+  .corner.bl{bottom:14px;left:14px;border-right:0;border-top:0}
+  .corner.br{bottom:14px;right:14px;border-left:0;border-top:0}
+
+  .stamp{position:absolute;top:16px;right:44px;text-align:right;font-size:12px;
+    color:var(--muted);line-height:1.7}
+  .stamp b{color:var(--fg);font-weight:500}
+
+  .legend{position:absolute;left:24px;bottom:66px;display:flex;align-items:center;gap:0;
+    background:rgb(18 19 21 / .78);border:1px solid var(--line);border-radius:3px;padding:7px 10px}
+  .legend .lab{margin-right:10px}
+  .legend .ramp{display:flex;width:150px;height:8px}
+  .legend .ramp i{flex:1}
+  .legend .mm{display:flex;justify-content:space-between;width:150px;font-size:12px;color:var(--dim);margin-top:4px}
+  .legend .wrap{display:flex;flex-direction:column}
+
+  .scanline{position:absolute;top:0;bottom:0;width:2px;left:58%;
+    background:linear-gradient(180deg,transparent,#ff6b35,transparent);opacity:.5}
+  .scanline::after{content:"";position:absolute;inset-block:0;left:-110px;width:110px;
+    background:linear-gradient(90deg,transparent,rgb(255 107 53 / .09))}
+
+  .track{position:absolute;left:24px;right:24px;bottom:0;height:46px;
+    border-top:1px solid var(--line);background:rgb(18 19 21 / .82);
+    display:flex;align-items:center;gap:14px;padding:0 14px}
+  .track .lab{flex:none}
+  .track .line{position:relative;flex:1;height:2px;background:#2b2f34}
+  .track .line i{position:absolute;inset-block:0;left:16%;right:24%;background:var(--fire)}
+  .track .line b{position:absolute;top:50%;width:9px;height:9px;margin-top:-4.5px;
+    background:var(--bg);border:1.5px solid var(--fire)}
+
+  @media (max-width:860px){
+    .screen{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    .rail{border-right:0;border-bottom:1px solid var(--line)}
+    .log{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <aside class="rail">
+    <div class="id"><span class="dot"></span><b>КОРДОН</b><span class="mono">VIIRS S2</span></div>
+
+    <div class="readout">
+      <div class="lab">Пройдено огнём</div>
+      <div class="big">4 812<s>га</s></div>
+
+      <div class="scale">
+        <div class="strip">
+          <i style="flex:44;background:var(--sev1)"></i>
+          <i style="flex:33;background:var(--sev2)"></i>
+          <i style="flex:23;background:var(--sev3)"></i>
+        </div>
+        <div class="ticks">
+          <div>слабая<b class="mono">2 140</b></div>
+          <div>средняя<b class="mono">1 605</b></div>
+          <div>сильная<b class="mono">1 067</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="cell"><div class="lab">Очаги</div><div class="v mono">128</div></div>
+      <div class="cell"><div class="lab">Отсеяно</div><div class="v mono warn">271</div></div>
+    </div>
+
+    <div class="log">
+      <div class="lab">Контуры</div>
+      <div class="entry"><span class="t mono">12.08</span><span class="n">Сальский</span><span class="a mono">612 га</span></div>
+      <div class="entry"><span class="t mono">28.07</span><span class="n">Палласовский</span><span class="a mono">489 га</span></div>
+      <div class="entry"><span class="t mono">19.07</span><span class="n">Харабалинский</span><span class="a mono">356 га</span></div>
+      <div class="entry"><span class="t mono">04.07</span><span class="n">Яшкульский</span><span class="a mono">281 га</span></div>
+      <div class="entry"><span class="t mono">27.06</span><span class="n">Новоузенский</span><span class="a mono">203 га</span></div>
+    </div>
+  </aside>
+
+  <main class="feed">
+    <svg viewBox="0 0 1100 900" preserveAspectRatio="xMidYMid slice" aria-label="Тепловой снимок региона">
+      <defs>
+        <radialGradient id="h1"><stop offset="0" stop-color="#ffd166"/><stop offset=".45" stop-color="#f0842b" stop-opacity=".8"/><stop offset="1" stop-color="#d93b2b" stop-opacity="0"/></radialGradient>
+        <radialGradient id="h2"><stop offset="0" stop-color="#ffe29a"/><stop offset=".4" stop-color="#f2c53d" stop-opacity=".75"/><stop offset="1" stop-color="#f0842b" stop-opacity="0"/></radialGradient>
+        <pattern id="sc" width="1" height="3" patternUnits="userSpaceOnUse">
+          <rect width="1" height="1" fill="#ffffff" opacity=".018"/>
+        </pattern>
+      </defs>
+      <rect width="1100" height="900" fill="#17191c"/>
+      <!-- холодный рельеф -->
+      <path d="M0 430 Q150 372 300 424 T600 398 Q740 366 880 424 T1100 400 V900 H0Z" fill="#1d2024"/>
+      <path d="M0 596 Q190 552 380 594 T760 574 Q940 542 1100 588 V900 H0Z" fill="#212529"/>
+      <path d="M-20 286 C180 312 270 400 460 428 S760 492 960 444 1120 490 1140 470" fill="none" stroke="#252c31" stroke-width="9"/>
+      <!-- тепловые сигнатуры -->
+      <ellipse cx="368" cy="404" rx="118" ry="92" fill="url(#h1)"/>
+      <ellipse cx="722" cy="282" rx="96" ry="80" fill="url(#h2)"/>
+      <ellipse cx="880" cy="612" rx="78" ry="62" fill="url(#h2)" opacity=".75"/>
+      <ellipse cx="214" cy="674" rx="70" ry="56" fill="url(#h1)" opacity=".6"/>
+      <!-- контур гари, прорисованный за сканом -->
+      <path d="M296 352 q60 -48 132 -20 72 28 62 96 -10 68 -90 78 -80 10 -110 -46 -30 -56 6 -108Z"
+            fill="none" stroke="#ff6b35" stroke-width="1.6" stroke-dasharray="5 4"/>
+      <!-- термоточки -->
+      <g fill="#ffd9c2">
+        <circle cx="356" cy="392" r="2.2"/><circle cx="378" cy="410" r="1.8"/><circle cx="342" cy="418" r="1.6"/>
+        <circle cx="712" cy="272" r="2.2"/><circle cx="734" cy="292" r="1.6"/>
+        <circle cx="872" cy="604" r="1.8"/>
+      </g>
+      <rect width="1100" height="900" fill="url(#sc)"/>
+    </svg>
+
+    <div class="hud">
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="stamp mono">
+        <b>47.2311° N &nbsp; 44.8506° E</b><br>
+        SWIR 2,2 µm, 375 м/пикс<br>
+        01.04 — 31.10.2025
+      </div>
+      <span class="scanline"></span>
+
+      <div class="legend">
+        <span class="lab">Яркостная T</span>
+        <span class="wrap">
+          <span class="ramp">
+            <i style="background:#2b2f34"></i><i style="background:#f2c53d"></i>
+            <i style="background:#f0842b"></i><i style="background:#d93b2b"></i>
+          </span>
+          <span class="mm mono"><span>290 K</span><span>420 K</span></span>
+        </span>
+      </div>
+
+      <div class="track">
+        <span class="lab mono">01.04</span>
+        <span class="line"><i></i><b style="left:16%"></b><b style="right:24%;margin-right:-4.5px"></b></span>
+        <span class="lab mono">31.10</span>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

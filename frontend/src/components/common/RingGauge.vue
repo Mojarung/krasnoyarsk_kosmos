@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { fmt } from '@/lib/format'
 
 const props = withDefaults(defineProps<{ value: number | null; label: string; size?: number; color?: string }>(), {
   size: 76,
@@ -30,7 +31,7 @@ const offset = computed(() => LENGTH * (1 - Math.min(Math.max(props.value ?? 0, 
         />
       </svg>
       <span class="absolute inset-0 grid place-items-center text-[15px] font-semibold tabular-nums">
-        {{ props.value == null ? '-' : props.value.toFixed(2) }}
+        {{ fmt.ratio(props.value) }}
       </span>
     </div>
     <span class="text-center text-[11px] leading-tight text-muted-foreground">{{ props.label }}</span>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { api } from '@/lib/api'
 import { APP_NAME, APP_TAGLINE } from '@/lib/brand'
-import { fmt } from '@/lib/format'
+import { fmt, plural } from '@/lib/format'
 import { useLiveStore } from '@/stores/live'
 import { useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
@@ -31,6 +31,14 @@ async function watchZone() {
   }
 }
 
+/** Круг раскрытия темы стартует из центра кнопки, а не из курсора: так это
+ * работает и при активации с клавиатуры, где координат нажатия нет. */
+function switchTheme(event: MouseEvent) {
+  const el = event.currentTarget as HTMLElement | null
+  const rect = el?.getBoundingClientRect()
+  ui.toggleTheme(rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined)
+}
+
 async function removeZone(id: number) {
   await api.deleteZone(id)
   await live.loadZones()
@@ -44,7 +52,7 @@ async function removeZone(id: number) {
       <div class="leading-none">
         <div class="text-sm font-semibold tracking-tight">{{ APP_NAME }}</div>
         <div class="mt-0.5 hidden text-[10px] text-muted-foreground sm:block">
-          <template v-if="data">{{ data.af_scenes + data.bs_scenes }} сцен · {{ fmt.compact(data.hotspots) }} термоточек</template>
+          <template v-if="data">{{ plural(data.af_scenes + data.bs_scenes, ['сцена', 'сцены', 'сцен']) }}, {{ fmt.compact(data.hotspots) }} термоточек</template>
           <template v-else>{{ APP_TAGLINE }}</template>
         </div>
       </div>
@@ -89,7 +97,7 @@ async function removeZone(id: number) {
               class="block w-full rounded-2xl bg-surface-3 px-3.5 py-2 text-left text-xs transition-colors hover:bg-accent"
               @click="ui.flyTarget = { lon: alert.lon, lat: alert.lat, zoom: 10 }"
             >
-              <span class="font-medium text-fire">{{ alert.n_hotspots }} термоточек</span> · {{ alert.zone_name }}
+              <span class="font-medium text-fire">{{ alert.n_hotspots }} термоточек</span>, {{ alert.zone_name }}
               <span class="block text-muted-foreground">{{ fmt.dateTimeUtc(alert.acquired_at) }}</span>
             </button>
           </div>
@@ -97,7 +105,7 @@ async function removeZone(id: number) {
       </Popover>
 
       <Button v-tip="'Документация REST API и OGC API Features'" variant="ghost" size="icon" as="a" href="/docs" target="_blank" rel="noopener noreferrer" aria-label="Документация REST API"><BookOpen /></Button>
-      <Button v-tip="ui.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" variant="ghost" size="icon" aria-label="Сменить тему" @click="ui.toggleTheme"><component :is="ui.theme === 'dark' ? Sun : Moon" /></Button>
+      <Button v-tip="ui.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" variant="ghost" size="icon" aria-label="Сменить тему" @click="switchTheme"><component :is="ui.theme === 'dark' ? Sun : Moon" /></Button>
     </div>
   </header>
 </template>

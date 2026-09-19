@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — направление 04 «Сводка»</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#14171a; --fg2:#5a6169; --hair:#e3e6e9;
+    --accent:#1f4d6b;
+    --sev1:#d8a520; --sev2:#dd7328; --sev3:#a52a1f;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:400 15px/1.55 "Inter Tight","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-0.035em}
+
+  .screen{display:grid;grid-template-columns:min(46%,560px) 1fr;height:100dvh;overflow:hidden}
+
+  /* ---------- левая колонка: сводка ---------- */
+  .col{padding:34px 40px 28px;display:flex;flex-direction:column;min-height:0;overflow:auto}
+
+  .top{display:flex;align-items:baseline;gap:12px;font-size:14px;color:var(--fg2)}
+  .top b{color:var(--fg);font-weight:600;font-size:15px;letter-spacing:-0.01em}
+  .top .per{margin-left:auto}
+
+  /* главное число — оно и есть композиция */
+  .lede{margin-top:30px}
+  .lede .cap{font-size:15px;color:var(--fg2)}
+  .lede .v{font-size:clamp(72px,9vw,124px);font-weight:600;line-height:.86;margin-top:6px}
+  .lede .u{font-size:26px;color:var(--fg2);font-weight:400;margin-left:10px;letter-spacing:0}
+
+  /* степени — три полосы во всю ширину, подписи сверху */
+  .sev{margin-top:30px;display:grid;grid-template-columns:44fr 33fr 23fr;gap:3px}
+  .sev div .n{font-size:22px;font-weight:600}
+  .sev div .l{font-size:14px;color:var(--fg2);margin-top:1px}
+  .sev div .b{display:block;height:6px;margin-top:9px}
+
+  /* ведомость — строки со сквозной линейкой */
+  .rows{margin-top:32px;border-top:1px solid var(--hair)}
+  .r{display:flex;align-items:baseline;gap:14px;padding:13px 0;border-bottom:1px solid var(--hair)}
+  .r .k{font-size:15px;color:var(--fg2);flex:1;min-width:0}
+  .r .v{font-size:23px;font-weight:600}
+  .r .u{font-size:14px;color:var(--fg2)}
+
+  /* месяцы — столбики без рамки */
+  .months{margin-top:auto;padding-top:28px}
+  .months .cap{font-size:14px;color:var(--fg2);display:flex;gap:8px;align-items:baseline}
+  .months .cap b{color:var(--fg);font-weight:600;font-size:15px}
+  .bars{display:flex;align-items:stretch;gap:7px;height:92px;margin-top:12px}
+  .bars div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
+  .bars i{display:block;background:var(--sev2);opacity:.28}
+  .bars i.pk{opacity:1}
+  .bars s{text-decoration:none;font-size:13px;color:var(--fg2);text-align:center}
+
+  /* ---------- правая колонка: карта как иллюстрация ---------- */
+  .fig{position:relative;border-left:1px solid var(--hair);min-width:0}
+  .fig svg{position:absolute;inset:0;width:100%;height:100%}
+  .figcap{position:absolute;left:28px;bottom:26px;max-width:340px;font-size:14px;
+    color:var(--fg2);background:rgb(255 255 255 / .9);padding:11px 14px;
+    border-left:2px solid var(--accent)}
+  .figcap b{display:block;color:var(--fg);font-weight:600;font-size:15px;margin-bottom:2px}
+
+  .pins{position:absolute;inset:0}
+  .pin{position:absolute;display:flex;align-items:center;gap:8px;font-size:14px}
+  .pin i{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 4px rgb(255 255 255 / .75)}
+  .pin span{background:rgb(255 255 255 / .9);padding:2px 7px;font-weight:600}
+
+  @media (max-width:900px){
+    .screen{grid-template-columns:1fr;grid-template-rows:1fr 38vh}
+    .fig{border-left:0;border-top:1px solid var(--hair)}
+    .col{padding:22px 20px}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <section class="col">
+    <div class="top"><b>Кордон</b> Нижнее Поволжье и Подонье <span class="per">1 апреля — 31 октября 2025</span></div>
+
+    <div class="lede">
+      <div class="cap">Пройдено огнём</div>
+      <div><span class="v num">4 812</span><span class="u">га</span></div>
+    </div>
+
+    <div class="sev">
+      <div><div class="n num">2 140</div><div class="l">слабая</div><i class="b" style="background:var(--sev1)"></i></div>
+      <div><div class="n num">1 605</div><div class="l">средняя</div><i class="b" style="background:var(--sev2)"></i></div>
+      <div><div class="n num">1 067</div><div class="l">сильная</div><i class="b" style="background:var(--sev3)"></i></div>
+    </div>
+
+    <div class="rows">
+      <div class="r"><span class="k">Очаги</span><span class="v num">128</span></div>
+      <div class="r"><span class="k">Отсеяно ложных</span><span class="v num">271</span></div>
+      <div class="r"><span class="k">Контуры гарей</span><span class="v num">37</span></div>
+      <div class="r"><span class="k">Требует посадок</span><span class="v num">2 672</span><span class="u">га</span></div>
+    </div>
+
+    <div class="months">
+      <div class="cap">Пик — <b>август, 1 980 га</b></div>
+      <div class="bars">
+        <div><i style="height:9%"></i><s>апр</s></div>
+        <div><i style="height:17%"></i><s>май</s></div>
+        <div><i style="height:31%"></i><s>июн</s></div>
+        <div><i style="height:62%"></i><s>июл</s></div>
+        <div><i class="pk" style="height:100%"></i><s>авг</s></div>
+        <div><i style="height:46%"></i><s>сен</s></div>
+        <div><i style="height:15%"></i><s>окт</s></div>
+      </div>
+    </div>
+  </section>
+
+  <figure class="fig" style="margin:0">
+    <svg viewBox="0 0 820 900" preserveAspectRatio="xMidYMid slice" aria-label="Карта гарей Нижнего Поволжья и Подонья">
+      <defs>
+        <pattern id="fg" width="14" height="14" patternUnits="userSpaceOnUse">
+          <circle cx="3.5" cy="3.5" r=".9" fill="#d3c9ad"/><circle cx="10.5" cy="10" r=".9" fill="#d3c9ad"/>
+        </pattern>
+      </defs>
+      <rect width="820" height="900" fill="#fafbfa"/>
+      <path d="M0 360 Q140 300 280 352 T560 326 Q680 296 820 350 V900 H0Z" fill="#f1ece0"/>
+      <rect width="820" height="900" fill="url(#fg)" opacity=".7"/>
+      <path d="M-20 240 C140 268 210 348 360 374 S610 434 780 390 830 412 840 404" fill="none" stroke="#cfdbe2" stroke-width="6"/>
+      <path d="M390 900 C420 740 380 672 424 576" fill="none" stroke="#cfdbe2" stroke-width="4"/>
+      <g>
+        <path d="M104 18 C150 6 206 24 224 62 C238 92 214 110 228 136 C240 160 212 190 170 194 C132 198 116 176 86 180 C50 185 22 162 20 128 C18 96 46 86 42 62 C38 36 66 28 104 18 Z" transform="translate(222,276) scale(.66) rotate(-7)" fill="#a52a1f" fill-opacity=".34" stroke="#a52a1f" stroke-width="2"/>
+        <path d="M78 10 C118 2 160 20 172 50 C182 76 158 90 168 112 C176 132 148 148 112 146 C82 144 74 128 50 130 C24 132 8 112 12 86 C16 62 38 56 38 38 C38 20 52 15 78 10 Z" transform="translate(548,186) scale(.66) rotate(13)" fill="#dd7328" fill-opacity=".3" stroke="#dd7328" stroke-width="2"/>
+        <path d="M64 8 C98 2 132 18 140 44 C146 66 126 76 134 94 C140 110 116 124 86 122 C62 120 56 108 36 110 C16 112 6 94 10 74 C14 54 30 50 30 34 C30 18 42 12 64 8 Z" transform="translate(578,580) scale(.62) rotate(-11)" fill="#d8a520" fill-opacity=".3" stroke="#d8a520" stroke-width="2"/>
+        <path d="M52 6 C80 2 108 14 114 36 C119 54 102 62 108 76 C113 90 92 96 68 95 C48 94 44 84 28 86 C12 88 4 72 8 56 C12 40 24 37 24 26 C24 14 34 9 52 6 Z" transform="translate(126,632) scale(.66) rotate(10)" fill="#dd7328" fill-opacity=".26" stroke="#dd7328" stroke-width="2"/>
+      </g>
+    </svg>
+
+    <div class="pins">
+      <div class="pin" style="left:38%;top:34%"><i style="background:#a52a1f"></i><span class="num">612 га</span></div>
+      <div class="pin" style="left:72%;top:24%"><i style="background:#dd7328"></i><span class="num">489 га</span></div>
+    </div>
+
+    <figcaption class="figcap"><b>37 контуров гарей</b>Границы восстановлены по Sentinel-2, степень поражения — по индексу dNBR.</figcaption>
+  </figure>
+
+</div>
+</body>
+</html>

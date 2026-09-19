@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Factory, Sun } from '@lucide/vue'
+import { Factory } from '@lucide/vue'
 import type { Feature, Point } from 'geojson'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import AnimatedNumber from '@/components/common/AnimatedNumber.vue'
@@ -64,12 +64,7 @@ watch(() => live.dataVersion, load)
     <label class="flex items-center justify-between gap-3 rounded-full bg-surface-2 px-4 py-2.5 text-[13px]">
       Показывать отсеянные на карте<Switch v-model="ui.showFiltered" />
     </label>
-
-    <p class="flex gap-2 text-[11px] leading-snug text-muted-foreground">
-      <Sun class="mt-0.5 size-3.5 shrink-0" />
-      Факел по одному снимку неотличим от пожара. Его выдаёт история: одна и та же ячейка горит из пролёта в пролёт и из года в год.
-    </p>
-    </div>
+</div>
 
     <div>
       <div class="mb-1.5 flex items-center justify-between">
@@ -86,7 +81,7 @@ watch(() => live.dataVersion, load)
           @click="ui.flyTarget = { lon: source.geometry.coordinates[0], lat: source.geometry.coordinates[1], zoom: 12 }"
         >
           <span class="flex items-center gap-2 whitespace-nowrap"><Factory class="size-3.5 shrink-0 text-technogenic" />{{ source.geometry.coordinates[1].toFixed(3) }}, {{ source.geometry.coordinates[0].toFixed(3) }}</span>
-          <span class="truncate tabular-nums text-muted-foreground">{{ source.properties.n_days }} из {{ source.properties.n_passes }} пролётов · {{ plural(source.properties.n_years, ['год', 'года', 'лет']) }}</span>
+          <span class="truncate tabular-nums text-muted-foreground">{{ source.properties.n_days }} из {{ source.properties.n_passes }} пролётов, {{ plural(source.properties.n_years, ['год', 'года', 'лет']) }}</span>
         </button>
         <p v-if="!sources.length" class="px-1 text-xs text-muted-foreground">Пока не найдены. Источник считается постоянным, если горел не меньше 5 дней, в 3 разных годах и хотя бы в 40 % пролётов.</p>
       </div>

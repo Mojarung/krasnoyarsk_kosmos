@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -97,9 +97,27 @@ def _day(iso: str) -> str:
     return f"{d.day} {MONTHS_GEN[d.month - 1]} {d.year}"
 
 
-def _stamp(generated_at: str) -> str:
-    """Момент формирования справки: «19 сентября 2026 года, 12:22 UTC»."""
-    return f"{_day(generated_at[:10])} года, {generated_at[11:16]} UTC"
+def _zone_label(offset: timedelta) -> str:
+    """Подпись пояса: UTC+3, UTC+5:30 у получасовых, UTC+0 у нулевого."""
+    minutes = round(offset.total_seconds() / 60)
+    hours, rest = divmod(abs(minutes), 60)
+    tail = f":{rest:02d}" if rest else ""
+    return f"UTC{'-' if minutes < 0 else '+'}{hours}{tail}"
+
+
+def _stamp(generated_at: str, tz_offset_min: int = 0) -> str:
+    """Момент формирования: «19 сентября 2026 года, 14:18 (UTC+3)».
+
+    Время показываем по часам того, кто делает выгрузку: сервер живёт в UTC и
+    пояса клиента не знает, поэтому смещение приходит с запросом. В JSON отметка
+    остаётся по ISO в UTC - её читают скрипты.
+    """
+    moment = datetime.fromisoformat(generated_at)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    local = moment.astimezone(timezone(timedelta(minutes=tz_offset_min)))
+    zone = _zone_label(local.utcoffset() or timedelta())
+    return f"{_day(local.date().isoformat())} года, {local:%H:%M} ({zone})"
 
 
 def _period(date_from: str, date_to: str) -> str:
@@ -145,10 +163,11 @@ class Spravka(FPDF):
     """Колонтитулы повторяют территорию и период: вырванная из пачки страница
     остаётся привязанной к местности, а не превращается в безымянные цифры."""
 
-    def __init__(self, title: str, period: str) -> None:
+    def __init__(self, title: str, period: str, tz_offset_min: int = 0) -> None:
         super().__init__(format="A4")
         self.doc_title = title
         self.doc_period = period
+        self.tz_offset_min = tz_offset_min
         self.set_margins(MARGIN_X, MARGIN_TOP, MARGIN_X)
         self.set_auto_page_break(auto=True, margin=MARGIN_BOTTOM)
         self.set_title(f"Аналитическая справка о природных пожарах. {title}")
@@ -350,7 +369,8 @@ def _cover(pdf: FPDF, report: dict[str, Any]) -> None:
     # Дата формирования стоит на титуле рядом с периодом: их путают, и на бумаге
     # должно быть видно сразу, за какой период данные и когда их выгрузили.
     pdf.set_font("body", "", 8)
-    pdf.cell(0, 4.4, f"Сформирована {_stamp(report['generated_at'])}", new_x="LMARGIN", new_y="NEXT")
+    stamp = _stamp(report["generated_at"], getattr(pdf, "tz_offset_min", 0))
+    pdf.cell(0, 4.4, f"Сформирована {stamp}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(2.5)
     top = pdf.get_y()
@@ -873,17 +893,17 @@ def _reproduce(pdf: FPDF, report: dict[str, Any]) -> None:
         f"{source} Площади считаются в {place['area_crs']}, координаты выгрузок в {place['crs']}. "
         f"Территория мониторинга покрыта данными за сезоны {area['seasons']}, месяцы {area['months']}.",
     )
-    _note(pdf, f"Справка сформирована {_stamp(report['generated_at'])}.")
+    _note(pdf, f"Справка сформирована {_stamp(report['generated_at'], getattr(pdf, 'tz_offset_min', 0))}.")
 
 
 # ── сборка ────────────────────────────────────────────────────────────────────
 
 
-def render(report: dict[str, Any]) -> bytes:
+def render(report: dict[str, Any], tz_offset_min: int = 0) -> bytes:
     regular, bold = _fonts()
     place = report["territory"]
     period = _period(report["query"]["date_from"], report["query"]["date_to"])
-    pdf = Spravka(place["name"], period)
+    pdf = Spravka(place["name"], period, tz_offset_min)
     pdf.add_font("body", "", regular)
     pdf.add_font("body", "B", bold)
     pdf.alias_nb_pages()

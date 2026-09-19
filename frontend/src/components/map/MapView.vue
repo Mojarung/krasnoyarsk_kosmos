@@ -4,7 +4,7 @@ import { api } from '@/lib/api'
 import { dayNumber } from '@/lib/format'
 import type { SceneSummary } from '@/lib/types'
 import { useLiveStore } from '@/stores/live'
-import { useQueryStore } from '@/stores/query'
+import { AOI_REGION_ID, useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
 import { FireMap } from './controller'
 
@@ -17,6 +17,19 @@ const container = ref<HTMLElement | null>(null)
 const fireMap = shallowRef<FireMap | null>(null)
 const compareScene = shallowRef<SceneSummary | null>(null)
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
+// Длинный контур в адрес тайла не влезет: такой полигон оставляем без ограничения выдачи.
+const CLIP_MAX_POINTS = 400
+
+/** Ключ выбранной области для тайлов гарей: id региона, свой контур или пусто на всей территории. */
+function clipKey(): string {
+  const geometry = query.geometry
+  if (query.regionId === AOI_REGION_ID || !geometry) return ''
+  if (query.regionId) return query.regionId
+  const rings = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
+  const ring = rings[0][0]
+  if (rings.length > 1 || ring.length > CLIP_MAX_POINTS) return ''
+  return `p:${ring.map(([lon, lat]) => `${lon.toFixed(5)},${lat.toFixed(5)}`).join(';')}`
+}
 
 defineExpose({
   flyTo: (lon: number, lat: number, zoom?: number) => fireMap.value?.flyTo(lon, lat, zoom),
@@ -37,7 +50,8 @@ function themeBackground(): string {
 
 onMounted(async () => {
   const instance = await FireMap.create(container.value!, ui.theme, themeBackground(), {
-    onSceneClick: (sceneId) => (ui.compareSceneId = sceneId),
+    onSceneClick: (sceneId) => (ui.passportTarget = { type: 'scene', id: sceneId }),
+    onHotspotClick: (id) => (ui.passportTarget = { type: 'hotspot', id }),
     onDrawn: (geometry) => {
       ui.drawMode = 'idle'
       query.setCustomGeometry(geometry)
@@ -57,6 +71,7 @@ onMounted(async () => {
   watch(() => ui.theme, (theme) => void instance.setTheme(theme, themeBackground()), { flush: 'post' })
   watch(() => live.zones, (zones) => instance.setZones(zones), { immediate: true })
   watch(() => query.meta?.tiles_version, (version) => version != null && instance.refreshTiles(version), { immediate: true })
+  watch([() => query.regionId, () => query.geometry], () => instance.setClip(clipKey()), { immediate: true })
   watch(
     [() => ui.showSources, () => live.dataVersion],
     async ([visible]) => instance.setSources(visible ? await api.sources() : EMPTY, visible),
@@ -64,12 +79,14 @@ onMounted(async () => {
   )
   watch(() => ui.flyTarget, (target) => target && instance.flyTo(target.lon, target.lat, target.zoom))
   watch(() => ui.drawMode, (mode) => (mode === 'idle' ? instance.stopDraw() : void instance.startDraw(mode)))
+  watch(() => ui.passport, (event) => instance.showEvent(event), { immediate: true })
   watch(
     () => ui.compareSceneId,
     async (sceneId) => {
       compareScene.value = sceneId ? await api.scene(sceneId) : null
       instance.showScene(compareScene.value, compareScene.value?.kind === 'bs' ? 'rgb_post' : 'thermal')
-      if (!sceneId && query.geometry) instance.setFocus(query.geometry)
+      if (!sceneId && ui.passport) instance.showEvent(ui.passport)
+      else if (!sceneId && query.geometry) instance.setFocus(query.geometry)
     },
   )
 })

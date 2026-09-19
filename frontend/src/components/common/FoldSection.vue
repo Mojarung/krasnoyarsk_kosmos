@@ -15,9 +15,15 @@ const emit = defineEmits<{ toggle: [] }>()
       <span v-else class="flex-1" />
       <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform duration-500 ease-spring" :class="props.open && 'rotate-180'" />
     </button>
+    <!--
+      Свёрнутая секция схлопнута сеткой и погашена прозрачностью, но содержимое
+      остаётся в дереве: Tab заходил внутрь и вёл на невидимые поля дат и чипы
+      годов. Атрибут inert убирает свёрнутое из обхода и из дерева доступности,
+      не ломая анимацию высоты.
+    -->
     <div class="grid transition-[grid-template-rows] duration-500 ease-emphasized" :class="props.open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'">
       <div class="overflow-hidden">
-        <div class="px-4 pb-4 pt-0.5 transition-opacity duration-300" :class="props.open ? 'opacity-100' : 'opacity-0'"><slot /></div>
+        <div :inert="!props.open" class="px-4 pb-4 pt-0.5 transition-opacity duration-300" :class="props.open ? 'opacity-100' : 'opacity-0'"><slot /></div>
       </div>
     </div>
   </section>

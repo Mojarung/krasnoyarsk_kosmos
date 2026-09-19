@@ -18,12 +18,12 @@ const opened = ref<string | null>(null)
     <div class="space-y-3">
       <div class="grid grid-cols-2 gap-2 @2xl:grid-cols-1">
         <div v-tip="'Слабая степень и травяные территории: растительность вернётся сама'" class="rounded-[24px] bg-tertiary-container/70 px-4 py-3.5">
-          <div class="flex items-center gap-1.5 text-[11px] opacity-75"><Sprout class="size-3.5" />Восстановится само</div>
-          <div class="mt-1 flex items-baseline gap-1.5"><AnimatedNumber :value="plan.natural_area_ha" :format="fmt.ha" class="display-number text-[28px]" /><span class="text-sm opacity-70">га</span></div>
+          <div class="flex items-center gap-1.5 text-[13px] opacity-90"><Sprout class="size-3.5" />Восстановится само</div>
+          <div class="mt-1 flex items-baseline gap-1.5"><AnimatedNumber :value="plan.natural_area_ha" :format="fmt.ha" class="display-number text-[28px]" /><span class="text-sm opacity-90">га</span></div>
         </div>
         <div v-tip="'Здесь лес сам не вернётся. Эта площадь идёт в расчёт ущерба'" class="rounded-[24px] bg-primary-container px-4 py-3.5 text-on-primary-container">
-          <div class="flex items-center gap-1.5 text-[11px] opacity-75"><TreePine class="size-3.5" />Нужны посадки</div>
-          <div class="mt-1 flex items-baseline gap-1.5"><AnimatedNumber :value="plan.damage_area_ha" :format="fmt.ha" class="display-number text-[28px]" /><span class="text-sm opacity-70">га</span></div>
+          <div class="flex items-center gap-1.5 text-[13px] opacity-90"><TreePine class="size-3.5" />Нужны посадки</div>
+          <div class="mt-1 flex items-baseline gap-1.5"><AnimatedNumber :value="plan.damage_area_ha" :format="fmt.ha" class="display-number text-[28px]" /><span class="text-sm opacity-90">га</span></div>
         </div>
       </div>
       <div class="flex items-center justify-between gap-3 rounded-full bg-surface-3 px-4 py-2.5 text-[13px]">

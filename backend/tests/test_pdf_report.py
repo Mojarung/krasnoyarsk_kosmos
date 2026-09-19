@@ -3,6 +3,7 @@ from shapely.geometry import box, mapping
 
 from firewatch.services import pdf_report, territory
 
+
 def _font_available() -> bool:
     try:
         pdf_report._fonts()
@@ -51,7 +52,9 @@ def _report(total_ha: float = 133_181.08) -> dict:
                 else []
             ),
             "by_severity": severity if total_ha else [],
-            "by_landcover": [{"landcover": "crop", "label": "пашня", "area_ha": total_ha}] if total_ha else [],
+            "by_landcover": [{"landcover": "crop", "label": "пашня", "area_ha": total_ha}]
+            if total_ha
+            else [],
         },
         "hotspots": {
             "raw_total": 1173,
@@ -126,6 +129,18 @@ def test_empty_result_still_produces_a_report() -> None:
 def test_period_reads_as_a_date_not_as_iso() -> None:
     assert pdf_report._period("2020-04-01", "2020-10-31") == "с 1 апреля по 31 октября 2020 года"
     assert pdf_report._period("2019-04-01", "2024-11-02").startswith("с 1 апреля 2019 года по")
+
+
+def test_stamp_follows_the_clock_of_whoever_exports() -> None:
+    """Сервер живёт в UTC, смещение приходит с запросом. Через полночь дата
+    обязана перевернуться вместе со временем, иначе отметка врёт на сутки."""
+    assert pdf_report._stamp("2026-09-19T21:49:15+00:00") == "19 сентября 2026 года, 21:49 (UTC+0)"
+    assert pdf_report._stamp("2026-09-19T21:49:15+00:00", 180) == "20 сентября 2026 года, 00:49 (UTC+3)"
+    assert pdf_report._stamp("2026-09-19T21:49:15+00:00", -300) == "19 сентября 2026 года, 16:49 (UTC-5)"
+
+
+def test_half_hour_zones_are_labelled_honestly() -> None:
+    assert "(UTC+5:30)" in pdf_report._stamp("2026-09-19T21:49:15+00:00", 330)
 
 
 def test_thousands_are_split_by_a_non_breaking_space() -> None:

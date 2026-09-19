@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — направление 06 «Лента времени»</title>
+<style>
+  :root{
+    --bg:#f2f3f1; --card:#ffffff; --fg:#1a1e1c; --fg2:#606a64; --hair:#dcdfda;
+    --accent:#2d5f52;
+    --sev1:#d8a520; --sev2:#dd7328; --sev3:#a52a1f;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:400 14px/1.45 "Inter Tight","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-0.015em}
+
+  .screen{display:flex;flex-direction:column;height:100dvh;overflow:hidden;gap:1px;
+    background:var(--hair)}
+
+  /* ---------- 1. шапка ---------- */
+  .bar{display:flex;align-items:center;gap:16px;height:52px;padding:14px 20px;background:var(--card)}
+  .bar .b{font-weight:600;letter-spacing:-0.01em;display:flex;align-items:center;gap:9px}
+  .bar .b i{width:9px;height:9px;background:var(--accent);flex:none}
+  .bar .place{font-size:14px;color:var(--fg2)}
+  .bar .tot{margin-left:auto;display:flex;align-items:baseline;gap:8px}
+  .bar .tot span{font-size:14px;color:var(--fg2)}
+  .bar .tot b{font-size:24px;font-weight:600}
+
+  /* ---------- 2. ось времени — главная навигация ---------- */
+  .axis{background:var(--card);padding:16px 20px 14px}
+  .axis .cap{display:flex;align-items:baseline;gap:8px;font-size:14px;color:var(--fg2)}
+  .axis .cap b{color:var(--fg);font-weight:600}
+  .lane{position:relative;height:74px;margin-top:11px}
+  .lane .base{position:absolute;left:0;right:0;bottom:22px;height:1px;background:var(--hair)}
+  .lane .col{position:absolute;bottom:22px;width:calc(100%/22 - 6px);
+    display:flex;flex-direction:column;justify-content:flex-end;height:52px}
+  .lane .col i{display:block;background:var(--sev2);opacity:.3}
+  .lane .col.hot i{opacity:1}
+  .lane .col.sel i{background:var(--sev3)}
+  .lane .ticks{position:absolute;left:0;right:0;bottom:0;display:flex;
+    justify-content:space-between;font-size:13px;color:var(--fg2)}
+  .lane .cursor{position:absolute;bottom:22px;top:0;width:2px;background:var(--accent)}
+  .lane .cursor s{position:absolute;top:-2px;left:50%;transform:translateX(-50%);
+    text-decoration:none;background:var(--accent);color:#fff;font-size:13px;
+    padding:2px 8px;white-space:nowrap}
+
+  /* ---------- 3. карта полосой ---------- */
+  .band{position:relative;flex:1;min-height:0;background:var(--card)}
+  .band svg{position:absolute;inset:0;width:100%;height:100%}
+  .chip{position:absolute;display:flex;align-items:center;gap:7px;
+    background:rgb(255 255 255 / .92);border:1px solid var(--hair);padding:4px 9px;font-size:13px}
+  .chip i{width:8px;height:8px;flex:none}
+  .chip b{font-weight:600}
+  .sevkey{position:absolute;right:20px;top:16px;background:rgb(255 255 255 / .92);
+    border:1px solid var(--hair);padding:11px 14px}
+  .sevkey .cap{font-size:13px;color:var(--fg2);margin-bottom:8px}
+  .sevkey div{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;
+    font-size:14px;padding:3px 0}
+  .sevkey i{height:10px}
+  .sevkey em{font-style:normal;color:var(--fg2)}
+  .sevkey b{font-weight:600}
+
+  /* ---------- 4. кадры сцен ---------- */
+  .strip{display:flex;gap:1px;background:var(--hair);height:132px}
+  .frame{flex:1;background:var(--card);padding:10px 12px;display:flex;flex-direction:column;
+    gap:8px;cursor:pointer;min-width:0}
+  .frame:hover{background:#fafbfa}
+  .frame .top{display:flex;align-items:baseline;gap:8px}
+  .frame .top b{font-size:14px;font-weight:600}
+  .frame .top s{text-decoration:none;margin-left:auto;font-size:14px;font-weight:600}
+  .frame .top span{font-size:13px;color:var(--fg2)}
+  .pair{flex:1;display:flex;gap:2px;min-height:0}
+  .pair figure{flex:1;margin:0;position:relative;overflow:hidden;background:#ece7da}
+  .pair figure svg{position:absolute;inset:0;width:100%;height:100%}
+  .pair figcaption{position:absolute;left:5px;bottom:4px;font-size:12px;
+    background:rgb(255 255 255 / .85);padding:1px 5px}
+
+  @media (max-width:900px){
+    .strip{display:none}
+    .bar .place{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <div class="bar">
+    <span class="b"><i></i>Кордон</span>
+    <span class="place">Нижнее Поволжье и Подонье</span>
+    <span class="tot"><span>пройдено огнём</span><b class="num">4 812</b><span>га</span></span>
+  </div>
+
+  <div class="axis">
+    <div class="cap">Пик — <b>август, 1 980 га</b></div>
+    <div class="lane">
+      <span class="base"></span>
+      <span class="col" style="left:calc(0*100%/22);"><i style="height:6%"></i></span>
+      <span class="col" style="left:calc(1*100%/22);"><i style="height:9%"></i></span>
+      <span class="col" style="left:calc(2*100%/22);"><i style="height:14%"></i></span>
+      <span class="col" style="left:calc(3*100%/22);"><i style="height:11%"></i></span>
+      <span class="col" style="left:calc(4*100%/22);"><i style="height:22%"></i></span>
+      <span class="col" style="left:calc(5*100%/22);"><i style="height:31%"></i></span>
+      <span class="col" style="left:calc(6*100%/22);"><i style="height:26%"></i></span>
+      <span class="col" style="left:calc(7*100%/22);"><i style="height:44%"></i></span>
+      <span class="col hot" style="left:calc(8*100%/22);"><i style="height:68%"></i></span>
+      <span class="col hot sel" style="left:calc(9*100%/22);"><i style="height:100%"></i></span>
+      <span class="col hot" style="left:calc(10*100%/22);"><i style="height:82%"></i></span>
+      <span class="col hot" style="left:calc(11*100%/22);"><i style="height:57%"></i></span>
+      <span class="col" style="left:calc(12*100%/22);"><i style="height:49%"></i></span>
+      <span class="col hot" style="left:calc(13*100%/22);"><i style="height:64%"></i></span>
+      <span class="col" style="left:calc(14*100%/22);"><i style="height:38%"></i></span>
+      <span class="col" style="left:calc(15*100%/22);"><i style="height:29%"></i></span>
+      <span class="col" style="left:calc(16*100%/22);"><i style="height:33%"></i></span>
+      <span class="col" style="left:calc(17*100%/22);"><i style="height:19%"></i></span>
+      <span class="col" style="left:calc(18*100%/22);"><i style="height:14%"></i></span>
+      <span class="col" style="left:calc(19*100%/22);"><i style="height:9%"></i></span>
+      <span class="col" style="left:calc(20*100%/22);"><i style="height:7%"></i></span>
+      <span class="col" style="left:calc(21*100%/22);"><i style="height:4%"></i></span>
+      <span class="cursor" style="left:calc(9*100%/22 + 1.2%)"><s class="num">12 августа</s></span>
+      <span class="ticks"><span>апрель</span><span>май</span><span>июнь</span><span>июль</span><span>август</span><span>сентябрь</span><span>октябрь</span></span>
+    </div>
+  </div>
+
+  <div class="band">
+    <svg viewBox="0 0 1440 460" preserveAspectRatio="xMidYMid slice" aria-label="Карта на выбранную дату">
+      <defs>
+        <pattern id="tr" width="15" height="15" patternUnits="userSpaceOnUse">
+          <circle cx="4" cy="4" r=".95" fill="#d1c7ab"/><circle cx="11" cy="10.5" r=".95" fill="#d1c7ab"/>
+        </pattern>
+      </defs>
+      <rect width="1440" height="460" fill="#f7f8f6"/>
+      <path d="M0 176 Q180 128 360 172 T720 148 Q900 116 1080 172 T1440 150 V460 H0Z" fill="#efeade"/>
+      <rect width="1440" height="460" fill="url(#tr)" opacity=".75"/>
+      <path d="M-20 96 C200 124 300 200 520 224 S880 282 1120 240 1420 278 1460 268" fill="none" stroke="#cedbe0" stroke-width="6"/>
+      <g>
+        <path d="M104 18 C150 6 206 24 224 62 C238 92 214 110 228 136 C240 160 212 190 170 194 C132 198 116 176 86 180 C50 185 22 162 20 128 C18 96 46 86 42 62 C38 36 66 28 104 18 Z" transform="translate(432,136) scale(.62) rotate(-8)" fill="#a52a1f" fill-opacity=".8"/>
+        <path d="M78 10 C118 2 160 20 172 50 C182 76 158 90 168 112 C176 132 148 148 112 146 C82 144 74 128 50 130 C24 132 8 112 12 86 C16 62 38 56 38 38 C38 20 52 15 78 10 Z" transform="translate(930,88) scale(.60) rotate(12)" fill="#dd7328" fill-opacity=".75"/>
+        <path d="M64 8 C98 2 132 18 140 44 C146 66 126 76 134 94 C140 110 116 124 86 122 C62 120 56 108 36 110 C16 112 6 94 10 74 C14 54 30 50 30 34 C30 18 42 12 64 8 Z" transform="translate(1182,272) scale(.58) rotate(-12)" fill="#d8a520" fill-opacity=".75"/>
+        <path d="M52 6 C80 2 108 14 114 36 C119 54 102 62 108 76 C113 90 92 96 68 95 C48 94 44 84 28 86 C12 88 4 72 8 56 C12 40 24 37 24 26 C24 14 34 9 52 6 Z" transform="translate(212,292) scale(.62) rotate(9)" fill="#dd7328" fill-opacity=".6"/>
+      </g>
+    </svg>
+
+    <span class="chip" style="left:41%;top:26%"><i style="background:#a52a1f"></i><b class="num">612 га</b></span>
+    <span class="chip" style="left:70%;top:14%"><i style="background:#dd7328"></i><b class="num">489 га</b></span>
+
+    <div class="sevkey">
+      <div class="cap">Степень поражения</div>
+      <div><i style="background:#d8a520"></i><em>слабая</em><b class="num">2 140 га</b></div>
+      <div><i style="background:#dd7328"></i><em>средняя</em><b class="num">1 605 га</b></div>
+      <div><i style="background:#a52a1f"></i><em>сильная</em><b class="num">1 067 га</b></div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="frame">
+      <div class="top"><b class="num">12.08</b><span>Сальский</span><s class="num">612 га</s></div>
+      <div class="pair">
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e3dcc8"/><path d="M0 44 Q30 34 60 43 T120 40 V70 H0Z" fill="#cec2a4"/></svg><figcaption>до</figcaption></figure>
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e3dcc8"/><path d="M0 44 Q30 34 60 43 T120 40 V70 H0Z" fill="#cec2a4"/><ellipse cx="58" cy="36" rx="34" ry="21" fill="#a52a1f" fill-opacity=".8"/></svg><figcaption>после</figcaption></figure>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="top"><b class="num">28.07</b><span>Палласовский</span><s class="num">489 га</s></div>
+      <div class="pair">
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e5dfca"/><path d="M0 36 Q34 28 66 37 T120 33 V70 H0Z" fill="#d1c5a7"/></svg><figcaption>до</figcaption></figure>
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e5dfca"/><path d="M0 36 Q34 28 66 37 T120 33 V70 H0Z" fill="#d1c5a7"/><ellipse cx="64" cy="34" rx="28" ry="18" fill="#dd7328" fill-opacity=".8"/></svg><figcaption>после</figcaption></figure>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="top"><b class="num">19.07</b><span>Харабалинский</span><s class="num">356 га</s></div>
+      <div class="pair">
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e1dac6"/><path d="M0 48 Q28 38 62 46 T120 42 V70 H0Z" fill="#ccc0a2"/></svg><figcaption>до</figcaption></figure>
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e1dac6"/><path d="M0 48 Q28 38 62 46 T120 42 V70 H0Z" fill="#ccc0a2"/><ellipse cx="56" cy="40" rx="24" ry="15" fill="#dd7328" fill-opacity=".7"/></svg><figcaption>после</figcaption></figure>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="top"><b class="num">04.07</b><span>Яшкульский</span><s class="num">281 га</s></div>
+      <div class="pair">
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e7e1cc"/><path d="M0 40 Q32 32 64 40 T120 36 V70 H0Z" fill="#d3c7a9"/></svg><figcaption>до</figcaption></figure>
+        <figure><svg viewBox="0 0 120 70" preserveAspectRatio="none"><rect width="120" height="70" fill="#e7e1cc"/><path d="M0 40 Q32 32 64 40 T120 36 V70 H0Z" fill="#d3c7a9"/><ellipse cx="60" cy="37" rx="20" ry="13" fill="#d8a520" fill-opacity=".75"/></svg><figcaption>после</figcaption></figure>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
