@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import BarList, { type BarListItem } from '@/components/common/BarList.vue'
 import MonthBars from '@/components/common/MonthBars.vue'
 import StatRows, { type StatRow } from '@/components/common/StatRows.vue'
@@ -16,6 +16,14 @@ const BURN_HINT = 'Площадь гарей, обрезанная по конт
 const months = computed(() => monthRange(props.report.query.date_from, props.report.query.date_to))
 const fireMonths = computed(() => denseMonths(months.value, props.report.hotspots.by_month, (m) => m.month, (m) => m.n))
 const burnMonths = computed(() => denseMonths(months.value, props.report.burn.by_month, (m) => m.month, (m) => m.area_ha))
+
+/**
+ * Курсор один на оба графика. Величины несопоставимы по масштабу — вторая ось
+ * была бы враньём, — поэтому это малые кратные: общая ось времени, общий курсор,
+ * и сравнение читается по вертикали, а не по наложению.
+ */
+const cursor = ref<number | null>(null)
+
 const fireLandcover = computed<BarListItem[]>(() => props.report.hotspots.by_landcover.map((l) => ({ key: l.landcover, label: l.label, value: l.n, hint: LANDCOVER_HINTS[l.label] })))
 const burnLandcover = computed<BarListItem[]>(() => props.report.burn.by_landcover.map((l) => ({ key: l.landcover, label: l.label, value: Math.round(l.area_ha), hint: LANDCOVER_HINTS[l.label] })))
 const satellites = computed<BarListItem[]>(() => Object.entries(props.report.hotspots.by_satellite).map(([name, n]) => {
@@ -45,26 +53,45 @@ const burnRows = computed<StatRow[]>(() => {
   return [
     { label: 'Гарь: типичная и наибольшая', value: `${fmt.ha(b.median_ha)} / ${fmt.ha(b.max_ha)} га`, hint: TERMS.contourSize },
     { label: 'Доля территории запроса', value: fmt.pct(b.burned_share), hint: `${TERMS.burnedShare}. Площадь территории: ${fmt.int(b.query_area_km2)} км²` },
-    { label: 'Средняя степень поражения', value: b.severity_index?.toFixed(2) ?? '-', hint: TERMS.severityIndex },
+    { label: 'Средняя степень поражения', value: b.severity_index?.toFixed(2) ?? '—', hint: TERMS.severityIndex },
   ]
 })
 </script>
 
 <template>
-  <div class="grid items-start gap-4 @4xl:grid-cols-3">
-    <div class="space-y-4 @4xl:col-span-2">
-    <div class="space-y-2">
-      <MonthBars title="Термоточки пожаров по месяцам" unit="точек" color="var(--fire)" :items="fireMonths" :hint="FIRE_HINT" />
-      <MonthBars title="Площадь гарей по месяцам" unit="га" color="var(--sev-2)" :items="burnMonths" :hint="BURN_HINT" :format="fmt.ha" />
-    </div>
-    <div class="grid items-start gap-4 @2xl:grid-cols-2">
-      <BarList title="Термоточки по типу территории" :hint="TERMS.landcover" unit="точек" color="var(--fire)" :items="fireLandcover" />
-      <BarList title="Гари по типу территории, га" :hint="TERMS.landcover" unit="га" color="var(--sev-2)" :items="burnLandcover" :format="fmt.ha" />
-    </div>
+  <div class="grid items-start gap-6 @4xl:grid-cols-3">
+    <div class="space-y-6 @4xl:col-span-2">
+      <!-- Одна ось времени, два ряда: огонь сверху, гарь снизу. Курсор общий. -->
+      <section class="space-y-6 rounded-[20px] bg-surface-2 px-4 pb-4 pt-3.5">
+        <MonthBars
+          v-model:cursor="cursor"
+          title="Термоточки пожаров по месяцам"
+          unit="точек"
+          color="var(--fire)"
+          :items="fireMonths"
+          :hint="FIRE_HINT"
+          :axis="false"
+        />
+        <MonthBars
+          v-model:cursor="cursor"
+          title="Площадь гарей по месяцам"
+          unit="га"
+          color="var(--sev-2)"
+          :items="burnMonths"
+          :hint="BURN_HINT"
+          :format="fmt.ha"
+        />
+      </section>
+
+      <div class="grid items-start gap-6 @2xl:grid-cols-2">
+        <BarList title="Термоточки по типу территории" :hint="TERMS.landcover" unit="точек" color="var(--fire)" :items="fireLandcover" />
+        <BarList title="Гари по типу территории" :hint="TERMS.landcover" unit="га" color="var(--sev-2)" :items="burnLandcover" :format="fmt.ha" />
+      </div>
     </div>
 
-    <div class="grid items-start gap-4 @2xl:grid-cols-2 @4xl:grid-cols-1">
-      <BarList title="Термоточки по спутникам" :hint="TERMS.satellites" unit="точек" color="var(--glint)" :items="satellites" :limit="4" />
+    <div class="grid items-start gap-6 @2xl:grid-cols-2 @4xl:grid-cols-1">
+      <!-- Спутник — не пожарные данные, поэтому неогненный акцент. -->
+      <BarList title="Термоточки по спутникам" :hint="TERMS.satellites" unit="точек" color="var(--primary)" :items="satellites" :limit="4" />
       <StatRows title="Термоточки пожаров" :hint="TERMS.hotspot" :rows="hotspotRows" />
       <StatRows title="Погода, когда горело" :rows="weatherRows" />
       <StatRows title="Гари" :hint="TERMS.contour" :rows="burnRows" />

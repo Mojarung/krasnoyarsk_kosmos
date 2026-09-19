@@ -49,7 +49,6 @@ const bins = computed<Bin[]>(() => {
   return result
 })
 const peakFire = computed(() => Math.max(1, ...bins.value.map((b) => b.fire + b.filtered)))
-const peakBurn = computed(() => Math.max(1, ...bins.value.map((b) => b.burnHa)))
 const years = computed(() => bins.value.filter((b) => b.key.endsWith('-01') || b === bins.value[0]).map((b) => ({ key: b.key, label: b.key.slice(0, 4), index: bins.value.indexOf(b) })))
 
 const fromMs = computed(() => Date.parse(query.dateFrom))
@@ -155,13 +154,12 @@ onBeforeUnmount(stop)
     </div>
 
     <div class="min-w-0 flex-1">
-      <div class="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+      <div class="mb-1 flex items-center justify-between text-[13px] text-muted-foreground">
         <span v-if="playheadLabel" class="font-medium text-primary tabular-nums">{{ playheadLabel }}</span>
         <span v-else>Потяните по шкале, чтобы выбрать период</span>
         <span class="flex items-center gap-3">
           <span class="flex items-center gap-1"><i class="size-1.5 rounded-full bg-fire" />термоточки</span>
           <span class="flex items-center gap-1"><i class="size-1.5 rounded-full bg-technogenic" />отсеяно</span>
-          <span class="flex items-center gap-1"><i class="h-0.5 w-2.5 rounded-full bg-sev-1" />гари, га</span>
         </span>
       </div>
 
@@ -180,14 +178,13 @@ onBeforeUnmount(stop)
           :class="isSelected(index) ? 'bg-primary/12' : 'bg-transparent'"
           :title="`${bin.key}: ${bin.fire} термоточек, ${bin.filtered} отсеяно, ${Math.round(bin.burnHa)} га`"
         >
-          <span class="absolute inset-x-0 h-0.5 rounded-full bg-sev-1 transition-[bottom,opacity] duration-500" :class="isSelected(index) ? 'opacity-90' : 'opacity-30'" :style="{ bottom: `${(bin.burnHa / peakBurn) * 88}%` }" v-if="bin.burnHa > 0" />
           <span class="w-full rounded-t-[3px] bg-technogenic transition-[height,opacity] duration-500 ease-spring" :class="isSelected(index) ? 'opacity-80' : 'opacity-25'" :style="{ height: `${(bin.filtered / peakFire) * 100}%` }" />
           <span class="w-full bg-fire transition-[height,opacity] duration-500 ease-spring" :class="[isSelected(index) ? 'opacity-100' : 'opacity-30', bin.filtered ? '' : 'rounded-t-[3px]']" :style="{ height: `${(bin.fire / peakFire) * 100}%` }" />
         </div>
         <div v-if="playheadPercent != null" class="pointer-events-none absolute inset-y-0 w-0.5 rounded-full bg-primary shadow-[0_0_12px_var(--primary)]" :style="{ left: `${playheadPercent}%` }" />
       </div>
 
-      <div class="relative mt-1 h-3 text-[10px] text-muted-foreground">
+      <div class="relative mt-1.5 h-4 text-[13px] text-muted-foreground">
         <span v-for="year in years" :key="year.key" class="absolute" :style="{ left: `${(year.index / bins.length) * 100}%` }">{{ year.label }}</span>
       </div>
     </div>
