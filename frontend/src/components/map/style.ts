@@ -1,4 +1,5 @@
 import type { AddLayerObject, ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
+import { recentWidth, shownOpacity } from './playback'
 
 /** Множитель размера термоточки по её мощности излучения: 0 МВт - вдвое мельче, 9 МВт - в полтора раза крупнее. */
 const POWER_SCALE: ExpressionSpecification = [
@@ -204,7 +205,7 @@ export function overlayLayers(): AddLayerObject[] {
         'circle-color': 'rgba(0,0,0,0)',
         'circle-stroke-color': ['match', ['get', 'kind'], 'glint', '#8ecdf0', '#8fa3b8'],
         'circle-stroke-width': 1.3,
-        'circle-stroke-opacity': 0.9,
+        'circle-stroke-opacity': shownOpacity(0.9),
       },
     },
     {
@@ -229,15 +230,15 @@ export function overlayLayers(): AddLayerObject[] {
         ],
         'circle-color': '#f7774a',
         'circle-blur': 1,
-        'circle-opacity': 0.42,
+        'circle-opacity': shownOpacity(0.42),
       },
     },
     {
       id: LAYER.firePulse,
       type: 'circle',
       source: SRC.hotspots,
-      filter: ['==', ['get', 'id'], -1],
-      paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#f2cf72', 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 },
+      filter: ['literal', false],
+      paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#f2cf72', 'circle-stroke-width': recentWidth(1.5), 'circle-stroke-opacity': 0.8 },
     },
     {
       id: LAYER.fireCore,
@@ -249,6 +250,8 @@ export function overlayLayers(): AddLayerObject[] {
         'circle-color': ['interpolate', ['linear'], ['get', 'bt_i4'], 320, '#f7774a', 345, '#ffb703', 367, '#fff3b0'],
         'circle-stroke-color': '#2b0d00',
         'circle-stroke-width': 0.6,
+        'circle-opacity': shownOpacity(1),
+        'circle-stroke-opacity': shownOpacity(1),
       },
     },
     // Прогноз фронта: три вложенных эллипса, ближний горизонт ярче.

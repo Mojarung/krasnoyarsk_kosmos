@@ -1,5 +1,5 @@
 import { gsap } from 'gsap'
-import { type ExpressionSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Marker, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
+import { type ExpressionSpecification, type FilterSpecification, type GeoJSONSource, type ImageSource, LngLatBounds, Map as MapLibre, type MapGeoJSONFeature, Marker, Popup, setWorkerUrl, type StyleSpecification } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection } from 'geojson'
 import type { AreaGeometry, FireEventDetail, HotspotCollection, HotspotProps, ResponseCard, SceneSummary, Zone } from '@/lib/types'
@@ -7,6 +7,7 @@ import { DEFAULT_FILTERS, type DisplayFilters } from '@/stores/ui'
 import { api } from '@/lib/api'
 import { fmt } from '@/lib/format'
 import type { Coordinates } from '@/lib/inspections'
+import { HotspotReveal } from './playback'
 import { focusMask, LAYER, loadBaseStyle, type MapTheme, OVERLAY_SOURCES, overlayLayers, SRC } from './style'
 
 setWorkerUrl(workerUrl)
@@ -14,6 +15,8 @@ setWorkerUrl(workerUrl)
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 const INTRO_VIEW = { center: [44, 30] as [number, number], zoom: 1.4 }
 const PULSE_WINDOW_S = 3 * 86_400
+/** Шаг, с которым при проигрывании проявляются гари: при 50 днях в секунду это около 3 пересборок тайлов в секунду. */
+const BURN_STEP_DAYS = 14
 const HOTSPOT_LAYERS = [LAYER.fireCore, LAYER.filtered]
 const BURN_LAYERS = [LAYER.severity, LAYER.burnFill, LAYER.burnCenters]
 
@@ -28,6 +31,11 @@ export interface MapCallbacks {
   onHotspotClick: (hotspotId: number) => void
   onInspectionPick: (point: Coordinates) => void
   onDrawn: (geometry: AreaGeometry) => void
+}
+
+/** Точки, до которых проигрывание ещё не дошло, лежат на карте прозрачными: наведение и клик их пропускают. */
+function isVisible(feature: MapGeoJSONFeature): boolean {
+  return !feature.state?.hidden
 }
 
 function escapeHtml(value: string): string {
@@ -68,6 +76,8 @@ export class FireMap {
   private satellite = false
   private tilesVersion: number | string = 0
   private clip = ''
+  private filters = new Map<string, string>()
+  private reveal: HotspotReveal
   ready: Promise<void>
 
   static async create(container: HTMLElement, theme: MapTheme, background: string, callbacks: MapCallbacks): Promise<FireMap> {
@@ -93,6 +103,7 @@ export class FireMap {
     })
     this.map.dragRotate.disable()
     this.map.touchZoomRotate.disableRotation()
+    this.reveal = new HotspotReveal(this.map, SRC.hotspots, PULSE_WINDOW_S)
     this.ready = new Promise((resolve) => this.map.once('load', () => resolve(this.setup())))
   }
 
@@ -131,7 +142,7 @@ export class FireMap {
         return
       }
       if (this.inspectionActive) return
-      const hotspot = map.queryRenderedFeatures(e.point, { layers: ['event-hotspot', LAYER.fireCore] })[0]
+      const hotspot = map.queryRenderedFeatures(e.point, { layers: ['event-hotspot', LAYER.fireCore] }).find(isVisible)
       if (hotspot?.properties?.id != null) {
         this.clearHover()
         this.callbacks.onHotspotClick(Number(hotspot.properties.id))
@@ -166,7 +177,7 @@ export class FireMap {
   private handleHover(point: { x: number; y: number }) {
     if (this.draw || this.inspectionPicking) return
     const map = this.map
-    const hotspot = map.queryRenderedFeatures([point.x, point.y] as [number, number], { layers: HOTSPOT_LAYERS })[0]
+    const hotspot = map.queryRenderedFeatures([point.x, point.y] as [number, number], { layers: HOTSPOT_LAYERS }).find(isVisible)
     const burn = hotspot ? undefined : map.queryRenderedFeatures([point.x, point.y] as [number, number], { layers: BURN_LAYERS })[0]
     map.getCanvas().style.cursor = hotspot || burn ? 'pointer' : ''
 
@@ -232,6 +243,7 @@ export class FireMap {
 
   setHotspots(collection: HotspotCollection) {
     this.geojson(SRC.hotspots).setData(collection)
+    this.reveal.setData(collection)
   }
 
   showEvent(event: FireEventDetail | null) {
@@ -362,31 +374,39 @@ export class FireMap {
   private applyTime() {
     const { fromDay, toDay, playheadTs } = this.window
     const { severities, minContourHa, dayNight, minConfidence, satellites } = this.display
-    const lastDay = playheadTs == null ? toDay : Math.min(toDay, Math.floor(playheadTs / 86_400))
-    const inPeriod: ExpressionSpecification = ['all', ['<=', ['get', playheadTs == null ? 't0' : 't1'], lastDay], ['>=', ['get', 't1'], fromDay]]
+    const playing = playheadTs != null
+    // Гари при проигрывании проявляются шагами: смена фильтра пересобирает все векторные тайлы гарей.
+    const playDay = playing ? Math.floor(playheadTs / 86_400) : toDay
+    const lastDay = playing ? Math.min(toDay, fromDay + Math.floor((playDay - fromDay) / BURN_STEP_DAYS) * BURN_STEP_DAYS) : toDay
+    const inPeriod: ExpressionSpecification = ['all', ['<=', ['get', playing ? 't1' : 't0'], lastDay], ['>=', ['get', 't1'], fromDay]]
 
     const hasSeverity: ExpressionSpecification = ['any', ...severities.map((k): ExpressionSpecification => ['>', ['get', `sev${k}_ha`], 0])]
     const contourFilter: ExpressionSpecification = ['all', inPeriod, ['>=', ['get', 'area_ha'], minContourHa], ...(severities.length < 3 ? [hasSeverity] : [])]
-    for (const id of [LAYER.burnFill, LAYER.burnLine]) this.map.setFilter(id, contourFilter)
-    this.map.setFilter(LAYER.burnCenters, ['all', inPeriod, ['>=', ['get', 'area_ha'], minContourHa]])
-    this.map.setFilter(LAYER.severity, ['all', inPeriod, ['in', ['get', 'severity'], ['literal', severities]], ['>=', ['get', 'contour_ha'], minContourHa]])
+    for (const id of [LAYER.burnFill, LAYER.burnLine]) this.setFilterOnce(id, contourFilter)
+    this.setFilterOnce(LAYER.burnCenters, ['all', inPeriod, ['>=', ['get', 'area_ha'], minContourHa]])
+    this.setFilterOnce(LAYER.severity, ['all', inPeriod, ['in', ['get', 'severity'], ['literal', severities]], ['>=', ['get', 'contour_ha'], minContourHa]])
 
-    const shown: ExpressionSpecification[] = [['>=', ['get', 'confidence'], minConfidence]]
-    if (playheadTs != null) shown.push(['<=', ['get', 'ts'], playheadTs])
-    if (dayNight !== 'all') shown.push(['==', ['get', 'is_night'], dayNight === 'night'])
-    if (satellites.length) shown.push(['in', ['get', 'satellite'], ['literal', satellites]])
-    const isFire: ExpressionSpecification = ['==', ['get', 'kind'], 'fire']
-    this.map.setFilter(LAYER.fireCore, ['all', isFire, ...shown])
-    this.map.setFilter(LAYER.fireGlow, ['all', isFire, ...shown])
-    this.map.setFilter(LAYER.filtered, this.showFiltered ? ['all', ['!=', ['get', 'kind'], 'fire'], ...shown.slice(1)] : ['literal', false])
+    // Время в фильтры точек не входит: день проигрывания открывает точки через feature-state.
+    const common: ExpressionSpecification[] = []
+    if (dayNight !== 'all') common.push(['==', ['get', 'is_night'], dayNight === 'night'])
+    if (satellites.length) common.push(['in', ['get', 'satellite'], ['literal', satellites]])
+    const fire: ExpressionSpecification = ['all', ['==', ['get', 'kind'], 'fire'], ['>=', ['get', 'confidence'], minConfidence], ...common]
+    this.setFilterOnce(LAYER.fireCore, fire)
+    this.setFilterOnce(LAYER.fireGlow, fire)
+    this.setFilterOnce(LAYER.filtered, this.showFiltered ? ['all', ['!=', ['get', 'kind'], 'fire'], ...common] : ['literal', false])
+    this.setFilterOnce(LAYER.firePulse, playing ? fire : ['literal', false])
+    this.reveal.seek(playheadTs)
 
-    if (playheadTs == null) {
-      this.pulse.pause(0)
-      this.map.setFilter(LAYER.firePulse, ['literal', false])
-    } else {
-      this.map.setFilter(LAYER.firePulse, ['all', isFire, ...shown, ['>', ['get', 'ts'], playheadTs - PULSE_WINDOW_S]])
-      this.pulse.play()
-    }
+    if (playing) this.pulse.play()
+    else this.pulse.pause(0)
+  }
+
+  /** Повторный setFilter с тем же выражением всё равно пересобирает тайлы, поэтому одинаковые пропускаются. */
+  private setFilterOnce(id: string, filter: FilterSpecification) {
+    const key = JSON.stringify(filter)
+    if (this.filters.get(id) === key) return
+    this.filters.set(id, key)
+    this.map.setFilter(id, filter)
   }
 
   refreshTiles(version: number | string) {
