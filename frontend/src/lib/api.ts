@@ -55,7 +55,15 @@ export interface QueryParams {
   date_to: string
 }
 
+export interface HotspotAcquisition {
+  status: 'idle' | 'running' | 'failed' | 'found' | 'ambiguous' | 'not_found'
+  event_id: string | null
+  jobs: { id: string; scene_id: string; status: string; stage: string; progress: number; error: string | null }[]
+}
+
 export const api = {
+  hotspotAcquisition: (id: string, signal?: AbortSignal) => request<HotspotAcquisition>(`${BASE}/events/${encodeURIComponent(id)}/acquisition`, { signal }),
+  startHotspotAcquisition: (id: string, retry: boolean, signal?: AbortSignal) => post<HotspotAcquisition>(`${BASE}/events/${encodeURIComponent(id)}/acquisition?retry=${retry}`, {}, signal),
   startVegetation: (eventId: string, retry = false, signal?: AbortSignal) => post<VegetationReport>(`${BASE}/events/${encodeURIComponent(eventId)}/vegetation?retry=${retry}`, {}, signal),
   vegetation: (jobId: string, signal?: AbortSignal) => request<VegetationReport>(`${BASE}/vegetation/${jobId}`, { signal }),
   createInspection: (body: InspectionInput) => post<Inspection>(`${BASE}/inspections`, body),

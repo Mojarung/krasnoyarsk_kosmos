@@ -64,6 +64,7 @@ async def acquire_scene(job_id: uuid.UUID, scene_id: str) -> None:
                 Path(tmp),
                 days=settings.live_search_days,
                 candidates=settings.live_candidates,
+                fire_context=request if request.get("origin_event") else None,
             )
             files = await asyncio.to_thread(_upload, scene_id, chip)
     except NoImageryError as exc:

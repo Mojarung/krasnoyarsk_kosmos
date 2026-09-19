@@ -22,10 +22,11 @@ from affine import Affine
 from pyproj import Transformer
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
+from rasterio.features import geometry_mask
 from rasterio.vrt import WarpedVRT
 from rasterio.windows import from_bounds
 from scipy import ndimage
-from shapely.geometry import Polygon, box
+from shapely.geometry import Polygon, box, mapping, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform as shapely_transform
 
@@ -249,11 +250,25 @@ def write_geotiff(path: Path, data: np.ndarray, grid: ChipGrid, names: tuple[str
 
 
 def pick_item(
-    grid: ChipGrid, target: date, days: int, candidates: int, tile: str | None = None
+    grid: ChipGrid,
+    target: date,
+    days: int,
+    candidates: int,
+    tile: str | None = None,
+    *,
+    before: date | None = None,
+    after: date | None = None,
+    mask: np.ndarray | None = None,
 ) -> tuple[stac.S2Item, np.ndarray]:
     """Облачность в каталоге указана на весь тайл 110 км, поэтому у лучших кандидатов маска SCL читается по самому чипу."""
     footprint = grid.footprint_wgs84()
-    ranked = stac.rank_items(stac.search_s2(footprint, target, days), footprint, target, grid.epsg, tile)
+    items = [
+        item
+        for item in stac.search_s2(footprint, target, days)
+        if (before is None or item.acquired.date() < before)
+        and (after is None or item.acquired.date() > after)
+    ]
+    ranked = stac.rank_items(items, footprint, target, grid.epsg, tile)
     if not ranked:
         raise stac.NoImageryError(f"В каталоге нет сцен Sentinel-2 на {target:%d.%m.%Y} ± {days} дн.")
     with ThreadPoolExecutor(candidates) as pool:
@@ -261,18 +276,53 @@ def pick_item(
     scored = zip(ranked, masks, strict=False)
     return min(
         scored,
-        key=lambda pair: (round(invalid_share(pair[1]), 2), abs((pair[0].acquired.date() - target).days)),
+        key=lambda pair: (
+            round(invalid_share(pair[1] if mask is None else pair[1][mask]), 2),
+            abs((pair[0].acquired.date() - target).days),
+        ),
     )
 
 
 def assemble_chip(
-    grid: ChipGrid, date_pre: date, date_post: date, folder: Path, *, days: int, candidates: int
+    grid: ChipGrid,
+    date_pre: date,
+    date_post: date,
+    folder: Path,
+    *,
+    days: int,
+    candidates: int,
+    fire_context: dict | None = None,
 ) -> tuple[ChipGrid, AcquiredChip]:
     """Возвращает и сетку: она сдвигается на решётку блоков тайла, в котором нашёлся снимок «после»."""
-    post, _ = pick_item(grid, date_post, days, 1)
-    grid = snap_to_blocks(grid, post)
-    post, scl_post = pick_item(grid, date_post, days, candidates, post.tile)
-    pre, scl_pre = pick_item(grid, date_pre, days, candidates, post.tile)
+    if fire_context:
+        # Keep the requested footprint: COG block snapping can move the hotspot out of the chip.
+        to_utm = Transformer.from_crs(4326, grid.epsg, always_xy=True).transform
+        target = shapely_transform(to_utm, shape(fire_context["target_geometry"]))
+        mask = geometry_mask([mapping(target)], (grid.height, grid.width), grid.transform, invert=True)
+        if not mask.any():
+            raise stac.NoImageryError("Термоточки не попали в область снимка")
+        post, scl_post = pick_item(
+            grid, date_post, days, candidates, after=date.fromisoformat(fire_context["fire_end"]), mask=mask
+        )
+        pre, scl_pre = pick_item(
+            grid,
+            date_pre,
+            days,
+            candidates,
+            post.tile,
+            before=date.fromisoformat(fire_context["fire_start"]),
+            mask=mask,
+        )
+        valid = ~(np.isin(scl_pre, SCL_INVALID) | np.isin(scl_post, SCL_INVALID))
+        if float(valid[mask].mean()) < 0.8:
+            raise stac.NoImageryError(
+                "Недостаточно ясных снимков у термоточек: облака, тени или пропуски данных"
+            )
+    else:
+        post, _ = pick_item(grid, date_post, days, 1)
+        grid = snap_to_blocks(grid, post)
+        post, scl_post = pick_item(grid, date_post, days, candidates, post.tile)
+        pre, scl_pre = pick_item(grid, date_pre, days, candidates, post.tile)
     if pre.acquired >= post.acquired:
         raise stac.NoImageryError("Снимок «до» получился не раньше снимка «после»: разнесите даты сильнее")
 
