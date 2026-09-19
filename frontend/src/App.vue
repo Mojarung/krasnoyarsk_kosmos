@@ -18,6 +18,7 @@ const MapView = defineAsyncComponent(() => import('@/components/map/MapView.vue'
 const PipelineDrawer = defineAsyncComponent(() => import('@/components/panels/PipelineDrawer.vue'))
 const SceneCompare = defineAsyncComponent(() => import('@/components/panels/SceneCompare.vue'))
 const FirePassport = defineAsyncComponent(() => import('@/components/panels/FirePassport.vue'))
+const VegetationHistory = defineAsyncComponent(() => import('@/components/panels/VegetationHistory.vue'))
 const InspectionPlanner = defineAsyncComponent(() => import('@/components/panels/InspectionPlanner.vue'))
 const SharedInspection = defineAsyncComponent(() => import('@/components/panels/SharedInspection.vue'))
 const sharedToken = ref(new URLSearchParams(window.location.hash.slice(1)).get('inspection'))
@@ -66,6 +67,7 @@ watch([mapReady, booted], async ([map, data]) => {
   }
 })
 watch(() => ui.pipelineOpen, (open) => open && (pipelineMounted.value = true))
+watch(() => query.params, () => { ui.vegetationEvent = null })
 
 /*
  * Карточка «до/после» шириной 720 px ложилась поверх сводки и резала главное
@@ -122,7 +124,11 @@ watch(sharedToken, (token) => {
     </div>
 
     <div v-if="ui.passportTarget" v-show="!ui.compareSceneId" class="pointer-events-none absolute bottom-8 right-3 top-20 z-10 flex justify-end sm:right-4 max-sm:bottom-7 max-sm:left-3 max-sm:top-[30dvh]">
-      <FirePassport v-show="!inspection.event" class="pointer-events-auto" />
+      <FirePassport v-show="!inspection.event && !ui.vegetationEvent" class="pointer-events-auto" />
+    </div>
+
+    <div v-if="ui.vegetationEvent" class="pointer-events-none absolute inset-x-3 bottom-5 top-20 z-30 flex justify-end sm:right-4">
+      <VegetationHistory :key="ui.vegetationEvent.id" :event="ui.vegetationEvent" class="pointer-events-auto" />
     </div>
 
     <div v-if="inspection.event" v-show="!inspection.picking" class="pointer-events-none absolute bottom-8 right-3 top-20 z-20 flex items-start justify-end sm:right-4 max-sm:bottom-7 max-sm:left-3 max-sm:top-[42dvh]">

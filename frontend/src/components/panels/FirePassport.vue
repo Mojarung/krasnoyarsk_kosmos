@@ -106,7 +106,7 @@ watch(() => query.params, () => {
 })
 watch(() => live.dataVersion, load)
 onKeyStroke('Escape', (e) => {
-  if (ui.compareSceneId || ui.pipelineOpen || inspection.event) return
+  if (ui.compareSceneId || ui.pipelineOpen || inspection.event || ui.vegetationEvent) return
   e.preventDefault()
   if (isList.value) close()
   else back()
@@ -183,6 +183,7 @@ onBeforeUnmount(() => { generation++; controller?.abort(); taskController?.abort
         <YandexMapsLink class="mt-4" :bounds="detail.bbox" place="Место наблюдений из паспорта" />
 
         <section v-if="detail.burn" class="mt-5 border-t pt-4" aria-label="Осмотры участка">
+          <Button class="mb-4 w-full" variant="secondary" @click="ui.vegetationEvent = detail">После пожара<ChevronRight /></Button>
           <h3 class="text-sm font-semibold">Проверить на месте</h3>
           <Button class="mt-3 w-full" variant="tonal" @click="inspection.start(detail)">Запланировать осмотр</Button>
           <p v-if="tasksError" class="mt-2 text-xs" role="alert">{{ tasksError }} <button class="underline" @click="loadTasks">Повторить загрузку заданий</button></p>

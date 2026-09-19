@@ -1,5 +1,6 @@
 import type { FeatureCollection, Point } from 'geojson'
 import type { Inspection, InspectionInput } from './inspections'
+import type { VegetationReport } from './vegetation'
 import type {
   AlertItem,
   FireEventDetail,
@@ -55,6 +56,8 @@ export interface QueryParams {
 }
 
 export const api = {
+  startVegetation: (eventId: string, retry = false, signal?: AbortSignal) => post<VegetationReport>(`${BASE}/events/${encodeURIComponent(eventId)}/vegetation?retry=${retry}`, {}, signal),
+  vegetation: (jobId: string, signal?: AbortSignal) => request<VegetationReport>(`${BASE}/vegetation/${jobId}`, { signal }),
   createInspection: (body: InspectionInput) => post<Inspection>(`${BASE}/inspections`, body),
   inspections: (eventId: string, signal?: AbortSignal) => request<{ items: Inspection[] }>(`${BASE}/inspections?${new URLSearchParams({ event_id: eventId })}`, { signal }),
   sharedInspection: (token: string) => request<Inspection>(`${BASE}/inspections/shared/${encodeURIComponent(token)}`),

@@ -17,6 +17,7 @@ from firewatch.api.routers import (
     ogc,
     realtime,
     scenes,
+    vegetation,
     zones,
 )
 from firewatch.config import get_settings
@@ -53,5 +54,5 @@ app.add_middleware(
     CORSMiddleware, allow_origins=get_settings().cors_origins, allow_methods=["*"], allow_headers=["*"]
 )
 
-for module in (analysis, scenes, acquisitions, realtime, zones, agent, ogc, meta, events, inspections):
+for module in (analysis, scenes, acquisitions, realtime, zones, agent, ogc, meta, events, inspections, vegetation):
     app.include_router(module.router)
