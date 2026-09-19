@@ -19,7 +19,7 @@ from fire_ml.bs_tensor import N_CHANNELS, chip_tensor
 from fire_ml.contract import BsChip, BsPrediction
 
 WEIGHTS = Path(__file__).parent / "weights"
-TTA = (0, 1, 4, 5)
+TTA = (0, 1, 2, 3, 4, 5, 6, 7)
 # В эталоне нет гари при dNBR ниже 0,06: покрытие 99,97%, а бустинг смотрит только треть пикселей.
 CANDIDATE_DNBR = 0.06
 GBM_THREADS = int(os.environ.get("FIRE_ML_GBM_THREADS", "4"))
