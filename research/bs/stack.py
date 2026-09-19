@@ -126,6 +126,7 @@ def main() -> None:
         proba[candidates[valid_idx]] = model.predict_proba(table[valid_idx])
         fold_of[candidates[valid_idx]] = fold
         print("fold", fold, flush=True)
+    np.save(OUT / f"oof_stack_{'+'.join(tags)}.npy", proba)
     weights, metrics = tune(proba, y)
     report = {"class_weights": weights.round(3).tolist(), **metrics}
     # Фон вне кандидатов относим к фолду по событию, иначе IoU по фолду считался бы без части пикселей.
