@@ -59,6 +59,8 @@ function hotspotPopup(p: HotspotProps): string {
 
 export class FireMap {
   readonly map: MapLibre
+  spatialActive = false
+  get isDestroyed() { return this.destroyed }
   private popup = new Popup({ closeButton: false, closeOnClick: false, offset: 12, maxWidth: '300px', className: 'map-hover-tooltip' })
   private hovered: MapGeoJSONFeature | null = null
   private pulse = gsap.timeline({ paused: true, repeat: -1 })
@@ -137,6 +139,7 @@ export class FireMap {
     map.on('mousemove', (e) => this.handleHover(e.point))
     map.on('mouseout', () => this.clearHover())
     map.on('click', (e) => {
+      if (this.spatialActive) return
       if (this.draw) return
       if (this.inspectionPicking) {
         this.callbacks.onInspectionPick([Number(e.lngLat.lng.toFixed(6)), Number(e.lngLat.lat.toFixed(6))])
@@ -176,6 +179,7 @@ export class FireMap {
   }
 
   private handleHover(point: { x: number; y: number }) {
+    if (this.spatialActive) { this.clearHover(); return }
     if (this.draw || this.inspectionPicking) return
     const map = this.map
     const hotspot = map.queryRenderedFeatures([point.x, point.y] as [number, number], { layers: HOTSPOT_LAYERS }).find(isVisible)

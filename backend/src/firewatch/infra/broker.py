@@ -5,6 +5,7 @@ from firewatch.config import get_settings
 INGEST_QUEUE = RabbitQueue("scene.ingest", durable=True)
 ACQUIRE_QUEUE = RabbitQueue("scene.acquire", durable=True)
 VEGETATION_QUEUE = RabbitQueue("vegetation.observe", durable=True)
+WORK_MAP_QUEUE = RabbitQueue("work-map.prepare", durable=True)
 
 broker = RabbitBroker(get_settings().rabbit_url)
 

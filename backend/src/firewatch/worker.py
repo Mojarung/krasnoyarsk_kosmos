@@ -8,10 +8,11 @@ from pydantic import BaseModel
 
 from firewatch.config import get_settings
 from firewatch.infra import s3
-from firewatch.infra.broker import ACQUIRE_QUEUE, INGEST_QUEUE, VEGETATION_QUEUE, broker
+from firewatch.infra.broker import ACQUIRE_QUEUE, INGEST_QUEUE, VEGETATION_QUEUE, WORK_MAP_QUEUE, broker
 from firewatch.pipeline.acquire_job import acquire_scene
 from firewatch.pipeline.ingest import process_scene
 from firewatch.services.vegetation import process as process_vegetation
+from firewatch.services.work_map import process as process_work_map
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 # Provider asset URLs can contain short-lived SAS credentials.
@@ -49,6 +50,11 @@ class VegetationMessage(BaseModel):
 @broker.subscriber(VEGETATION_QUEUE, channel=Channel(prefetch_count=1))
 async def vegetation(message: VegetationMessage) -> None:
     await process_vegetation(message.job_id)
+
+
+@broker.subscriber(WORK_MAP_QUEUE, channel=Channel(prefetch_count=1))
+async def work_map(message: VegetationMessage) -> None:
+    await process_work_map(message.job_id)
 
 
 if __name__ == "__main__":

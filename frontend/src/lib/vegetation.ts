@@ -22,6 +22,7 @@ export interface VegetationFrame {
 }
 
 export interface VegetationReport {
+  georef?: { corners: [[number, number], [number, number], [number, number], [number, number]]; width: number; height: number; bbox: [number, number, number, number] }
   id: string
   event_id: string
   status: 'queued' | 'running' | 'ready' | 'partial' | 'error'

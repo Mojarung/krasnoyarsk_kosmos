@@ -115,7 +115,21 @@ def save_report(report: dict) -> None:
 
 
 def public(report: dict) -> dict:
-    return {k: v for k, v in report.items() if k != "source"}
+    result = {k: v for k, v in report.items() if k != "source"}
+    if report.get("source"):
+        grid = make_grid(report["source"]["geometry"], report["source"]["epsg"])
+        to_wgs = Transformer.from_crs(grid["epsg"], 4326, always_xy=True)
+        corners = [
+            list(to_wgs.transform(*(grid["transform"] @ p)))
+            for p in [(0, 0), (grid["width"], 0), (grid["width"], grid["height"]), (0, grid["height"])]
+        ]
+        result["georef"] = {
+            "corners": corners,
+            "width": grid["width"],
+            "height": grid["height"],
+            "bbox": list(grid["region"].bounds),
+        }
+    return result
 
 
 def asset_url(url: str) -> str:

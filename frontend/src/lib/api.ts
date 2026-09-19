@@ -1,6 +1,7 @@
 import type { FeatureCollection, Point } from 'geojson'
 import type { Inspection, InspectionInput } from './inspections'
 import type { VegetationReport } from './vegetation'
+import type { WorkMap } from './work-map'
 import type {
   AlertItem,
   FireEventDetail,
@@ -62,6 +63,8 @@ export interface HotspotAcquisition {
 }
 
 export const api = {
+  workMap: (id: string, signal?: AbortSignal) => request<WorkMap>(`${BASE}/events/${encodeURIComponent(id)}/work-map`, { signal }),
+  startWorkMap: (id: string, signal?: AbortSignal) => post<WorkMap>(`${BASE}/events/${encodeURIComponent(id)}/work-map`, {}, signal),
   hotspotAcquisition: (id: string, signal?: AbortSignal) => request<HotspotAcquisition>(`${BASE}/events/${encodeURIComponent(id)}/acquisition`, { signal }),
   startHotspotAcquisition: (id: string, retry: boolean, signal?: AbortSignal) => post<HotspotAcquisition>(`${BASE}/events/${encodeURIComponent(id)}/acquisition?retry=${retry}`, {}, signal),
   startVegetation: (eventId: string, retry = false, signal?: AbortSignal) => post<VegetationReport>(`${BASE}/events/${encodeURIComponent(eventId)}/vegetation?retry=${retry}`, {}, signal),

@@ -8,12 +8,15 @@ import { AOI_REGION_ID, useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
 import { useInspectionStore } from '@/stores/inspection'
 import { FireMap } from './controller'
+import MapVisual from './MapVisual.vue'
+import { useSpatialStore } from '@/stores/spatial'
 
 const emit = defineEmits<{ ready: [] }>()
 const query = useQueryStore()
 const ui = useUiStore()
 const live = useLiveStore()
 const inspection = useInspectionStore()
+const spatial = useSpatialStore()
 
 const container = ref<HTMLElement | null>(null)
 const fireMap = shallowRef<FireMap | null>(null)
@@ -120,5 +123,6 @@ onBeforeUnmount(() => { disposed = true; mapEffects.stop(); fireMap.value?.destr
 <template>
   <div class="absolute inset-0" :class="{ 'cursor-crosshair': ui.drawMode !== 'idle' }">
     <div ref="container" class="size-full" />
+    <MapVisual v-if="spatial.mode && fireMap" :key="`${spatial.event?.id}:${spatial.mode}`" :owner="fireMap" />
   </div>
 </template>

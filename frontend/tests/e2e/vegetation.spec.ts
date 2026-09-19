@@ -16,6 +16,7 @@ async function open(page: Page, event = events[0], history = true) {
   await expect(page.getByText('Собираем наблюдения', { exact: true })).toBeHidden({ timeout: 60_000 })
   await page.getByRole('button', { name: `Открыть паспорт ${event}`, exact: true }).click()
   await page.getByRole('button', { name: 'После пожара', exact: true }).click()
+  await page.getByRole('button', { name: 'История по годам', exact: true }).click()
   await expect(dialog(page)).toBeVisible()
   if (history) {
     await dialog(page).getByRole('tab', { name: 'До пожара', exact: true }).click()
@@ -80,6 +81,7 @@ for (const event of events) {
     await expect(dialog(page)).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'История наблюдений' })).toBeVisible()
     await page.getByRole('button', { name: 'После пожара', exact: true }).click()
+    await page.getByRole('button', { name: 'История по годам', exact: true }).click()
     await loaded(page)
     await dialog(page).getByRole('button', { name: 'Осмотреть участок' }).click()
     await expect(dialog(page)).toHaveCount(0)

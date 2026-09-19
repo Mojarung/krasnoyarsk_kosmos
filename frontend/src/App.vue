@@ -13,6 +13,8 @@ import { useQueryStore } from '@/stores/query'
 import { APP_NAME } from '@/lib/brand'
 import { useUiStore } from '@/stores/ui'
 import { useInspectionStore } from '@/stores/inspection'
+import { useSpatialStore } from '@/stores/spatial'
+import SpatialPanel from '@/components/panels/SpatialPanel.vue'
 
 const MapView = defineAsyncComponent(() => import('@/components/map/MapView.vue'))
 const PipelineDrawer = defineAsyncComponent(() => import('@/components/panels/PipelineDrawer.vue'))
@@ -30,6 +32,9 @@ const query = useQueryStore()
 const live = useLiveStore()
 const ui = useUiStore()
 const inspection = useInspectionStore()
+const spatial = useSpatialStore()
+watch(() => ui.passportTarget, () => spatial.close())
+watch(() => query.params, () => spatial.close())
 
 const mapReady = ref(false)
 const booted = ref(false)
@@ -124,9 +129,10 @@ watch(sharedToken, (token) => {
     </div>
 
     <div v-if="ui.passportTarget" v-show="!ui.compareSceneId" class="pointer-events-none absolute bottom-8 right-3 top-20 z-10 flex justify-end sm:right-4 max-sm:bottom-7 max-sm:left-3 max-sm:top-[30dvh]">
-      <FirePassport v-show="!inspection.event && !ui.vegetationEvent" class="pointer-events-auto" />
+      <FirePassport v-show="!inspection.event && !ui.vegetationEvent && !spatial.mode" class="pointer-events-auto" />
     </div>
 
+    <SpatialPanel v-if="spatial.mode" />
     <div v-if="ui.vegetationEvent" class="pointer-events-none absolute inset-x-3 bottom-5 top-20 z-30 flex justify-end sm:right-4">
       <VegetationHistory :key="ui.vegetationEvent.id" :event="ui.vegetationEvent" class="pointer-events-auto" />
     </div>
