@@ -185,8 +185,6 @@ async def fetch(area: BaseGeometry, date_from: date, date_to: date) -> tuple[lis
     span_days = (date_to - date_from).days
     if span_days < 0:
         raise FirmsError("Начало периода должно быть раньше окончания")
-    if span_days > settings.firms_max_days:
-        raise FirmsError(f"NASA FIRMS можно загрузить максимум за {settings.firms_max_days} дней за один запуск")
 
     base = settings.firms_base_url.rstrip("/")
     key = quote(settings.firms_map_key, safe="")

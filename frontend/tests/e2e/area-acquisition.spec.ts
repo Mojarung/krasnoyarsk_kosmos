@@ -21,14 +21,15 @@ test('custom territory loads hotspots and queues burns without opening pipeline'
   await page.goto('/')
   await expect(page.locator('main > .z-50')).toHaveCount(0, { timeout: 60_000 })
   await page.getByRole('button', { name: 'Прямоугольник', exact: true }).click()
+  await expect(page.getByText('Кликните два противоположных угла').last()).toBeVisible()
   const canvas = page.locator('.maplibregl-canvas').first()
-  await canvas.click({ position: { x: 500, y: 260 } })
-  await canvas.click({ position: { x: 610, y: 360 } })
+  await canvas.click({ position: { x: 470, y: 230 } })
+  await canvas.click({ position: { x: 700, y: 430 } })
 
   const territory = page.getByRole('region', { name: 'Данные выбранной территории' })
   await expect(territory).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Конвейер обработки' })).toHaveCount(0)
-  await territory.getByRole('button', { name: 'Изменить период' }).click()
+  await page.getByRole('button', { name: /^Период/ }).click()
   await page.getByLabel('с', { exact: true }).fill('2024-08-01')
   await page.getByLabel('по', { exact: true }).fill('2024-08-20')
   await expect(territory.getByText('19 дн.')).toBeVisible()
@@ -63,14 +64,54 @@ test('large territory keeps hotspot success and explains skipped burn detail', a
   await page.goto('/')
   await expect(page.locator('main > .z-50')).toHaveCount(0, { timeout: 60_000 })
   await page.getByRole('button', { name: 'Прямоугольник', exact: true }).click()
+  await expect(page.getByText('Кликните два противоположных угла').last()).toBeVisible()
   const canvas = page.locator('.maplibregl-canvas').first()
   await canvas.click({ position: { x: 470, y: 230 } })
   await canvas.click({ position: { x: 700, y: 430 } })
   const territory = page.getByRole('region', { name: 'Данные выбранной территории' })
-  await territory.getByRole('button', { name: 'Изменить период' }).click()
+  await expect(territory).toBeVisible()
+  await page.getByRole('button', { name: /^Период/ }).click()
   await page.getByLabel('с', { exact: true }).fill('2024-08-01')
   await page.getByLabel('по', { exact: true }).fill('2024-08-20')
   await territory.getByRole('button', { name: /^(Получить|Обновить) данные$/ }).click()
   await expect(territory.getByText('Термоточки: добавлено 27.')).toBeVisible()
   await expect(territory.getByText(/Гари не запущены: Область 47 x 36 км/)).toBeVisible()
+})
+
+test('thermopoints are not blocked for one-day or multi-year periods', async ({ page }) => {
+  let requestBody: { date_pre?: string; date_post?: string } = {}
+  await page.route('**/api/v1/acquisitions', async route => {
+    requestBody = route.request().postDataJSON() as typeof requestBody
+    await route.fulfill({
+      status: 202,
+      json: {
+        jobs: [],
+        hotspots: { status: 'ready', imported: 0, existing: 12, products: ['VIIRS_NOAA20_SP'] },
+        burns: { status: 'skipped', jobs: 0, message: 'Между снимками «до» и «после» должно быть от 5 до 120 дней' },
+      },
+    })
+  })
+  await page.goto('/')
+  await expect(page.locator('main > .z-50')).toHaveCount(0, { timeout: 60_000 })
+  await page.getByRole('button', { name: 'Прямоугольник', exact: true }).click()
+  await expect(page.getByText('Кликните два противоположных угла').last()).toBeVisible()
+  const canvas = page.locator('.maplibregl-canvas').first()
+  await canvas.click({ position: { x: 470, y: 230 } })
+  await canvas.click({ position: { x: 700, y: 430 } })
+
+  const territory = page.getByRole('region', { name: 'Данные выбранной территории' })
+  await expect(territory).toBeVisible()
+  await page.getByRole('button', { name: /^Период/ }).click()
+  await page.getByLabel('с', { exact: true }).fill('2024-08-01')
+  await page.getByLabel('по', { exact: true }).fill('2024-08-01')
+  await expect(territory.getByRole('button', { name: /^(Получить|Обновить) данные$/ })).toBeEnabled()
+
+  await page.getByLabel('с', { exact: true }).fill('2019-04-01')
+  await page.getByLabel('по', { exact: true }).fill('2024-11-02')
+  const acquire = territory.getByRole('button', { name: /^(Получить|Обновить) данные$/ })
+  await expect(acquire).toBeEnabled()
+  await acquire.click()
+  await expect(territory.getByText('Термоточки: уже загружены.')).toBeVisible()
+  expect(requestBody.date_pre).toBe('2019-04-01')
+  expect(requestBody.date_post).toBe('2024-11-02')
 })

@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -39,6 +39,17 @@ def test_availability_uses_standard_processing_then_nrt_in_five_day_chunks() -> 
         (date(2024, 8, 29), 5),
         (date(2024, 9, 3), 2),
     ]
+
+
+def test_long_period_is_split_without_an_artificial_total_limit() -> None:
+    availability = firms.parse_availability(AVAILABILITY)
+
+    parts = firms.plan_requests(availability, date(2024, 1, 1), date(2024, 8, 31))
+
+    assert parts
+    assert all(1 <= part.days <= 5 for part in parts)
+    assert any(part.date_from == date(2024, 1, 1) for part in parts)
+    assert max(part.date_from + timedelta(days=part.days - 1) for part in parts) == date(2024, 8, 31)
 
 
 def test_viirs_csv_maps_satellites_confidence_and_night() -> None:

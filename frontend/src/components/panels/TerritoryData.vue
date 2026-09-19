@@ -21,7 +21,7 @@ const spanDays = computed(() => {
   const to = Date.parse(`${query.dateTo}T00:00:00Z`)
   return Number.isFinite(from) && Number.isFinite(to) ? Math.round((to - from) / 86_400_000) : -1
 })
-const periodReady = computed(() => spanDays.value >= 5 && spanDays.value <= 120)
+const periodReady = computed(() => spanDays.value >= 0)
 const runningJobs = computed(() => live.watchedJobs.filter(job => submittedJobs.value.includes(job.id) && !['done', 'failed'].includes(job.status)))
 const finishedJobs = computed(() => live.watchedJobs.filter(job => submittedJobs.value.includes(job.id) && job.status === 'done').length)
 const currentData = computed(() => {
@@ -71,7 +71,7 @@ async function acquire() {
       </div>
 
       <p v-if="!periodReady" class="mt-3 rounded-xl bg-tertiary-container/60 px-3 py-2 text-xs leading-snug">
-        Для загрузки выберите период от 5 до 120 дней.
+        Начало периода должно быть не позже окончания.
         <button type="button" class="font-medium underline underline-offset-2" @click="emit('openPeriod')">Изменить период</button>
       </p>
       <p v-else-if="!query.meta?.integrations.firms" class="mt-3 flex gap-2 rounded-xl bg-tertiary-container/60 px-3 py-2 text-xs leading-snug">
@@ -106,7 +106,7 @@ async function acquire() {
       <p v-if="error" class="mt-3 text-xs leading-snug text-destructive" role="alert">{{ error }}</p>
     </div>
     <div class="border-t border-border/60 px-3.5 py-2 text-[10px] leading-snug text-muted-foreground">
-      Большая область подходит для термоточек. Детальная гарь строится только для участка до четырёх чипов 10,24 × 10,24 км.
+      Термоточки можно загрузить за любой период; длинный период займёт больше времени. Детальная гарь строится для интервала 5–120 дней и участка до четырёх чипов 10,24 × 10,24 км.
     </div>
   </section>
 </template>

@@ -54,7 +54,6 @@ class Settings(BaseSettings):
     # NASA FIRMS Area API. A free MAP_KEY is required by NASA for CSV access.
     firms_map_key: str = ""
     firms_base_url: str = "https://firms.modaps.eosdis.nasa.gov"
-    firms_max_days: int = 120
 
     llm_base_url: str = ""
     llm_api_key: str = ""
