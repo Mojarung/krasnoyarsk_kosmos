@@ -63,6 +63,7 @@ def _zip_folder(folder: Path) -> bytes:
 
 def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
     burn, hot, plan = report["burn"], report["hotspots"], report["restoration"]
+    power, emissions = hot["power"], report["emissions"]
     rows: list[tuple[str, str, Any, str]] = [
         ("Запрос", "Период с", report["query"]["date_from"], ""),
         ("Запрос", "Период по", report["query"]["date_to"], ""),
@@ -82,6 +83,16 @@ def _report_rows(report: dict[str, Any]) -> list[tuple[str, str, Any, str]]:
         ("Термоточки", "Техногенные источники", hot["technogenic"], "шт"),
         ("Термоточки", "Блики", hot["glint"], "шт"),
         ("Термоточки", "Ложных выездов предотвращено", hot["false_dispatches_prevented"], "шт"),
+    ]
+    rows += [
+        ("Термоточки", "Суммарная мощность излучения", power["total_mw"], "МВт"),
+        ("Термоточки", "Самая мощная термоточка", power["max_mw"], "МВт"),
+        ("Термоточки", "Насыщенных пикселов I4", power["saturated"], "шт"),
+    ]
+    rows += [("Выбросы", f"{s['label']}, {s['name']}", s["tonnes"], "т") for s in emissions["species"]]
+    rows += [
+        ("Выбросы", "Сгоревшая биомасса", emissions["dry_matter_t"], "т"),
+        ("Выбросы", "CO₂-эквивалент", emissions["co2e_t"], "т"),
     ]
     rows += [("Восстановление", i["label"], i["area_ha"], "га") for i in plan["items"]]
     rows += [
