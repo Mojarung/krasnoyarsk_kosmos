@@ -51,10 +51,10 @@ async function save(path: string, key: string) {
 <template>
   <Popover>
     <PopoverTrigger as-child>
-      <Button v-tip="'Скачать контуры гарей для ГИС и справку по текущему запросу'" variant="tonal" class="flex-1" :disabled="!query.params"><Download />Выгрузить</Button>
+      <Button v-tip="'Скачать контуры гарей для ГИС и справку по текущему запросу'" variant="default" size="lg" class="flex-1" :disabled="!query.params"><Download />Выгрузить</Button>
     </PopoverTrigger>
     <PopoverContent side="top" align="start" class="w-[388px] rounded-[26px] border-border bg-popover p-4">
-      <div class="label-caps mb-2">Контуры для ГИС</div>
+      <div class="label-caps mb-2"><span v-tip="'Атрибуты: id контура, степень, площадь в га. Площадь считается в UTM-зоне сцены, координаты в WGS 84'" class="term">Контуры для ГИС</span></div>
       <BubbleTabs v-model="layer" :options="LAYERS" size="sm" stretch />
       <div class="mt-2.5 flex flex-wrap gap-1.5">
         <Button v-for="item in VECTOR" :key="item.format" v-tip="item.hint" size="sm" variant="secondary" :disabled="busy !== null" @click="save(`/api/v1/burns?layer=${layer}&format=${item.format}`, `burn_${layer}.${item.format}`)">
@@ -73,7 +73,6 @@ async function save(path: string, key: string) {
         {{ copied ? 'Скопировано' : 'Скопировать запрос как curl' }}
       </Button>
       <p v-if="failure" class="mt-2 text-xs text-destructive">{{ failure }}</p>
-      <p class="mt-3 text-[11px] leading-snug text-muted-foreground">Атрибуты: id контура, степень, площадь в га. Площадь считается в UTM-зоне сцены, координаты в WGS 84.</p>
     </PopoverContent>
   </Popover>
 </template>

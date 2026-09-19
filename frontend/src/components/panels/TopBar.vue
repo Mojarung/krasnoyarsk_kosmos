@@ -44,7 +44,7 @@ async function removeZone(id: number) {
       <div class="leading-none">
         <div class="text-sm font-semibold tracking-tight">{{ APP_NAME }}</div>
         <div class="mt-0.5 hidden text-[10px] text-muted-foreground sm:block">
-          <template v-if="data">{{ data.af_scenes + data.bs_scenes }} сцен · {{ fmt.compact(data.hotspots) }} термоточек</template>
+          <template v-if="data">{{ data.af_scenes + data.bs_scenes }} сцен, {{ fmt.compact(data.hotspots) }} термоточек</template>
           <template v-else>{{ APP_TAGLINE }}</template>
         </div>
       </div>
@@ -89,7 +89,7 @@ async function removeZone(id: number) {
               class="block w-full rounded-2xl bg-surface-3 px-3.5 py-2 text-left text-xs transition-colors hover:bg-accent"
               @click="ui.flyTarget = { lon: alert.lon, lat: alert.lat, zoom: 10 }"
             >
-              <span class="font-medium text-fire">{{ alert.n_hotspots }} термоточек</span> · {{ alert.zone_name }}
+              <span class="font-medium text-fire">{{ alert.n_hotspots }} термоточек</span>, {{ alert.zone_name }}
               <span class="block text-muted-foreground">{{ fmt.dateTimeUtc(alert.acquired_at) }}</span>
             </button>
           </div>

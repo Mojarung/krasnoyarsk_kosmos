@@ -117,7 +117,7 @@ onMounted(() => live.loadJobs())
     <DialogContent class="panel flex max-h-[88dvh] w-[min(560px,94vw)] max-w-none flex-col gap-0 overflow-hidden !rounded-[32px] border-border p-0">
       <DialogHeader class="shrink-0 px-6 pt-6">
         <DialogTitle class="text-lg">Конвейер обработки</DialogTitle>
-        <DialogDescription class="text-[13px]">Файлы уходят в S3, задание в RabbitMQ, воркер пишет результат в PostGIS. Прогресс приходит по SSE.</DialogDescription>
+        <DialogDescription class="sr-only">Файлы уходят в S3, задание в RabbitMQ, воркер пишет результат в PostGIS. Прогресс приходит по SSE.</DialogDescription>
       </DialogHeader>
 
       <div class="shrink-0 px-6 pt-4"><BubbleTabs v-model="section" :options="SECTIONS" size="sm" stretch /></div>

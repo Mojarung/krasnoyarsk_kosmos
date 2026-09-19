@@ -27,7 +27,7 @@ const card = ref<AgentCardData | null>(null)
 const refusalExamples = ref<string[]>([])
 let controller: AbortController | null = null
 
-const modeLabel = computed(() => (mode.value === 'llm' ? `${query.meta?.agent.model ?? 'LLM'} · карта и справка уже обновлены` : mode.value === 'rules' ? 'разбор по правилам · карта и справка уже обновлены' : mode.value === 'guard' ? 'вопрос вне темы, карта не менялась' : null))
+const modeLabel = computed(() => (mode.value === 'llm' ? `${query.meta?.agent.model ?? 'LLM'}, карта и справка уже обновлены` : mode.value === 'rules' ? 'разбор по правилам, карта и справка уже обновлены' : mode.value === 'guard' ? 'вопрос вне темы, карта не менялась' : null))
 
 onClickOutside(root, () => !busy.value && (open.value = false))
 

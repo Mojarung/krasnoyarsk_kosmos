@@ -17,10 +17,10 @@ type DetailView = Exclude<InsightView, 'overview'>
 const query = useQueryStore()
 const ui = useUiStore()
 
-const SECTIONS: { view: DetailView; title: string; short: string; about: string; icon: Component }[] = [
-  { view: 'dynamics', title: 'Динамика и статистика', short: 'Когда и где горело', about: 'Графики по месяцам, что именно горело, какой спутник заметил и какая была погода', icon: BarChart3 },
-  { view: 'restoration', title: 'Восстановление', short: 'Что делать с гарями', about: 'Что восстановится само, а где нужны посадки. Считаем по степени поражения и типу территории', icon: Sprout },
-  { view: 'alarms', title: 'Ложные тревоги', short: 'Заводы, факелы, блики', about: 'Спутник видит тепло, но это не пожар: заводы, факелы, блики. Отсеяли их, и бригада не выезжает зря', icon: ShieldCheck },
+const SECTIONS: { view: DetailView; title: string; icon: Component }[] = [
+  { view: 'dynamics', title: 'Динамика и статистика', icon: BarChart3 },
+  { view: 'restoration', title: 'Восстановление', icon: Sprout },
+  { view: 'alarms', title: 'Ложные тревоги', icon: ShieldCheck },
 ]
 const VIEWS = {
   overview: defineAsyncComponent(() => import('./tabs/OverviewTab.vue')),
@@ -73,9 +73,8 @@ onKeyStroke('Escape', () => {
       <Button v-if="isWide" v-tip="'Свернуть до сводки и вернуть карту, клавиша Esc'" variant="secondary" size="sm" class="shrink-0 pl-2.5" @click="open('overview')"><ArrowLeft />Сводка</Button>
       <div class="min-w-0 flex-1" :class="!isWide && 'pl-2'">
         <h2 class="truncate text-[15px] font-semibold leading-tight">{{ section?.title ?? 'Сводка' }}</h2>
-        <p class="truncate text-muted-foreground" :class="isWide ? 'text-xs' : 'text-[11px]'">{{ section?.about ?? `${query.regionName} · ${period}` }}</p>
+        <p class="truncate text-[13px] text-muted-foreground">{{ query.regionName }}, {{ period }}</p>
       </div>
-      <span v-if="isWide" class="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 text-xs text-muted-foreground max-xl:hidden">{{ query.regionName }} · {{ period }}</span>
       <Button v-if="!isWide" v-tip="'Открыть подробную аналитику на весь экран'" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Открыть подробную аналитику" @click="open('dynamics')"><Maximize2 /></Button>
       <Button v-tip="'Свернуть панель, карта станет шире'" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Свернуть сводку" @click="ui.insightOpen = false"><ChevronRight /></Button>
     </header>
@@ -94,15 +93,14 @@ onKeyStroke('Escape', () => {
           <component :is="item.icon" class="mt-0.5 size-4 shrink-0" :class="ui.insightTab !== item.view && 'text-muted-foreground'" />
           <span class="min-w-0">
             <span class="block text-[13px] font-medium leading-tight">{{ item.title }}</span>
-            <span class="mt-0.5 block text-xs leading-snug opacity-70">{{ item.short }}</span>
           </span>
         </button>
-        <div v-if="query.report" class="mt-auto rounded-[20px] bg-surface-2 px-4 py-3">
-          <div class="label-caps">Пройдено огнём</div>
+        <div v-if="query.report" class="mt-3 rounded-[20px] bg-surface-2 px-4 py-3">
+          <div class="text-[13px] text-muted-foreground">Пройдено огнём</div>
           <div class="mt-0.5 flex items-baseline gap-1.5"><span class="display-number text-2xl">{{ fmt.ha(query.report.burn.total_ha) }}</span><span class="text-sm text-muted-foreground">га</span></div>
-          <div class="mt-1 text-xs leading-snug text-muted-foreground">{{ plural(query.report.hotspots.fire_clusters, ['очаг', 'очага', 'очагов']) }} · отсеяно {{ fmt.int(query.report.hotspots.technogenic + query.report.hotspots.glint) }}</div>
+          <div class="mt-1 text-xs leading-snug text-muted-foreground">{{ plural(query.report.hotspots.fire_clusters, ['очаг', 'очага', 'очагов']) }}, отсеяно {{ fmt.int(query.report.hotspots.technogenic + query.report.hotspots.glint) }}</div>
         </div>
-        <div class="flex" :class="query.report ? 'mt-2' : 'mt-auto'"><ExportMenu /></div>
+        <div class="mt-3 flex"><ExportMenu /></div>
       </nav>
 
       <div ref="scroller" class="thin-scroll relative min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-3 pt-3 @container">
