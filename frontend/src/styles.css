@@ -253,12 +253,12 @@
 html.theme-anim,
 html.theme-anim *:not(.maplibregl-map):not(.maplibregl-map *) {
   transition:
-    background-color 300ms var(--ease-standard),
-    border-color 300ms var(--ease-standard),
-    color 300ms var(--ease-standard),
-    fill 300ms var(--ease-standard),
-    stroke 300ms var(--ease-standard),
-    box-shadow 300ms var(--ease-standard) !important;
+    background-color 700ms var(--ease-standard),
+    border-color 700ms var(--ease-standard),
+    color 700ms var(--ease-standard),
+    fill 700ms var(--ease-standard),
+    stroke 700ms var(--ease-standard),
+    box-shadow 700ms var(--ease-standard) !important;
 }
 @media (prefers-reduced-motion: reduce) {
   html.theme-anim,
@@ -270,6 +270,7 @@ html.theme-anim *:not(.maplibregl-map):not(.maplibregl-map *) {
 /* Раскрытие темы кругом из кнопки. Старый снимок лежит неподвижно, новый
    выезжает клипом — поэтому обе стандартные анимации отключены, иначе они
    перекрестно гасят друг друга и получается мигание. */
+::view-transition-group(root),
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;

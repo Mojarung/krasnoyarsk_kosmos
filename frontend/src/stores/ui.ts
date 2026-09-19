@@ -55,7 +55,7 @@ export const useUiStore = defineStore('ui', () => {
    * не накроет экран целиком.
    *
    * Запасной путь для браузеров без View Transitions и для reduced-motion —
-   * класс theme-anim: переход цветов на 300 мс, снимается сразу. Постоянный
+   * класс theme-anim: переход цветов на 700 мс, снимается сразу. Постоянный
    * transition на background-color висеть не может: он делает вялым отклик
    * на наведение.
    */
@@ -67,7 +67,7 @@ export const useUiStore = defineStore('ui', () => {
     const root = document.documentElement
     root.classList.add('theme-anim')
     clearTimeout(themeAnimTimer)
-    themeAnimTimer = setTimeout(() => root.classList.remove('theme-anim'), 380)
+    themeAnimTimer = setTimeout(() => root.classList.remove('theme-anim'), 780)
     flip()
   }
 
@@ -87,7 +87,7 @@ export const useUiStore = defineStore('ui', () => {
     void transition.ready.then(() => {
       document.documentElement.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 620, easing: 'cubic-bezier(0.2, 0, 0, 1)', pseudoElement: '::view-transition-new(root)' },
+        { duration: 1200, easing: 'cubic-bezier(0.2, 0, 0, 1)', pseudoElement: '::view-transition-new(root)' },
       )
     })
   }
