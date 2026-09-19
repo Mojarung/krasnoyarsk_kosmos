@@ -60,6 +60,7 @@ class Hotspot(Base):
     __tablename__ = "hotspots"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    external_id: Mapped[str | None] = mapped_column(String(64), unique=True)
     scene_id: Mapped[str] = mapped_column(ForeignKey("scenes.id", ondelete="CASCADE"), index=True)
     geom: Mapped[Any] = mapped_column(Geometry("POINT", srid=4326))
     epsg: Mapped[int] = mapped_column(Integer)

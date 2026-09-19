@@ -8,6 +8,7 @@ import type {
   FireEventList,
   FireEventStatus,
   AreaGeometry,
+  AreaAcquisitionResult,
   AreaSuggestion,
   Meta,
   PipelineMetrics,
@@ -93,7 +94,7 @@ export const api = {
   responsePlan: (params: QueryParams, signal?: AbortSignal) => post<ResponsePlan>(`${BASE}/response-plan`, params, signal),
   suggestArea: (mode: 'random' | 'fire') => request<AreaSuggestion>(`${BASE}/acquisitions/suggest?mode=${mode}`),
   acquire: (geometry: AreaGeometry, date_pre: string, date_post: string) =>
-    post<{ jobs: { job_id: string; scene_id: string }[] }>(`${BASE}/acquisitions`, { geometry, date_pre, date_post }),
+    post<AreaAcquisitionResult>(`${BASE}/acquisitions`, { geometry, date_pre, date_post }),
   zones: () => request<Zone[]>(`${BASE}/zones`),
   createZone: (name: string, geometry: AreaGeometry, webhook_url: string | null) =>
     post<Zone>(`${BASE}/zones`, { name, geometry, webhook_url }),

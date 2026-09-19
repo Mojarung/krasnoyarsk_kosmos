@@ -54,6 +54,7 @@ export interface HotspotProps {
   ts: number
   satellite: string | null
   scene_id: string
+  source: string
   bt_i4: number
   bt_i5: number
   frp_mw: number | null
@@ -272,6 +273,7 @@ export interface Meta {
   severity: { severity: number; label: string; color: string }[]
   pipeline: { stage: string; label: string }[]
   agent: { llm: boolean; model: string | null }
+  integrations: { firms: boolean }
   tiles_version: number
 }
 
@@ -388,4 +390,20 @@ export interface AreaSuggestion {
   date_pre: string
   date_post: string
   label: string
+}
+
+export interface AreaAcquisitionResult {
+  jobs: { job_id: string; scene_id: string }[]
+  hotspots: {
+    status: 'ready' | 'unavailable'
+    imported: number
+    existing: number
+    products?: string[]
+    message?: string
+  }
+  burns: {
+    status: 'queued' | 'skipped'
+    jobs: number
+    message?: string
+  }
 }

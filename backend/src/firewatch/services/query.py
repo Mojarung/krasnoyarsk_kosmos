@@ -114,8 +114,8 @@ _HOTSPOTS = text(
     WITH q AS (SELECT {QUERY_GEOM} AS geom)
     SELECT h.id, ST_X(h.geom) AS lon, ST_Y(h.geom) AS lat, h.acquired_at, h.satellite, h.scene_id,
            {_KIND_SQL} AS kind, h.code, h.persistent, h.bt_i4, h.bt_i5, h.frp_mw, h.confidence, h.landcover,
-           h.is_night, h.t2m, h.rh2m, h.wind_speed, p.n_days, p.n_years, p.n_passes
-    FROM hotspots h
+           h.is_night, h.t2m, h.rh2m, h.wind_speed, sc.source, p.n_days, p.n_years, p.n_passes
+    FROM hotspots h JOIN scenes sc ON sc.id = h.scene_id
     CROSS JOIN q
     LEFT JOIN LATERAL (
         SELECT ps.n_days, ps.n_years, ps.n_passes FROM persistent_sources ps
@@ -231,6 +231,7 @@ def _hotspot_feature(row: dict[str, Any]) -> dict[str, Any]:
             "ts": int(row["acquired_at"].timestamp()),
             "satellite": row["satellite"],
             "scene_id": row["scene_id"],
+            "source": row["source"],
             "bt_i4": round(row["bt_i4"], 1),
             "bt_i5": round(row["bt_i5"], 1),
             "frp_mw": _rounded(row["frp_mw"]),

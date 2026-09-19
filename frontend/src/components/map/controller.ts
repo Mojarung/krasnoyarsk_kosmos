@@ -50,11 +50,12 @@ function hotspotPopup(p: HotspotProps): string {
     p.frp_mw == null
       ? ''
       : `<div class="mt-1.5 text-xs">Мощность <span class="font-medium">${fmt.num(p.frp_mw)} МВт</span>${p.frp_saturated ? ' <span class="opacity-70">(канал насыщен, оценка снизу)</span>' : ''}</div>`
+  const source = p.source === 'firms' ? '<div class="mt-1 text-[10px] uppercase tracking-wide opacity-55">NASA FIRMS · VIIRS 375 м</div>' : ''
   return `<div class="text-[13px] min-w-52">
     <div class="flex items-center gap-2 font-medium"><span class="size-2 rounded-full" style="background:${tone}"></span>${escapeHtml(p.kind_label)}</div>
     <div class="mt-1 text-xs opacity-70">${fmt.dateTimeUtc(p.acquired_at)}, ${escapeHtml(p.satellite ?? '')}${p.is_night ? ', ночь' : ''}</div>
     <div class="mt-1.5 grid grid-cols-2 gap-x-3 text-xs"><span>I4 ${fmt.num(p.bt_i4)} K</span><span>I4-I5 ${fmt.num(p.bt_i4 - p.bt_i5)} K</span><span>${escapeHtml(p.landcover)}</span><span>увер. ${fmt.pct(p.confidence)}</span></div>
-    ${power}${weather}${reason}${p.kind === 'fire' ? '<div class="mt-2 text-xs">Нажмите, чтобы открыть паспорт пожара</div>' : ''}</div>`
+    ${power}${weather}${source}${reason}${p.kind === 'fire' ? '<div class="mt-2 text-xs">Нажмите, чтобы открыть паспорт пожара</div>' : ''}</div>`
 }
 
 export class FireMap {

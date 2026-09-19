@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { fmt } from '@/lib/format'
 import { AOI_REGION_ID, useQueryStore } from '@/stores/query'
 import { type Basemap, type DayNight, useUiStore } from '@/stores/ui'
+import TerritoryData from './TerritoryData.vue'
 
 type Section = 'area' | 'period' | 'layers' | 'filters'
 
@@ -133,6 +134,8 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
           {{ ui.drawMode === 'polygon' ? 'Ставьте вершины кликами, замкните контур на первой точке' : 'Кликните два противоположных угла' }}
         </p>
       </FoldSection>
+
+      <TerritoryData v-if="query.regionId === null && query.geometry" @open-period="opened = 'period'" />
 
       <FoldSection title="Период" :summary="periodSummary" :icon="CalendarRange" :open="opened === 'period'" @toggle="toggle('period')">
         <div class="grid grid-cols-2 gap-2">

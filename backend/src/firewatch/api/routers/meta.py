@@ -91,6 +91,7 @@ async def meta(session: Session) -> dict[str, Any]:
         ],
         "pipeline": [{"stage": s, "label": STAGE_MESSAGES.get(s, "В очереди RabbitMQ")} for s in STAGES],
         "agent": {"llm": get_settings().llm_enabled, "model": get_settings().llm_model or None},
+        "integrations": {"firms": get_settings().firms_enabled},
         "tiles_version": int(await redis.get(DATA_VERSION_KEY) or 0),
     }
 

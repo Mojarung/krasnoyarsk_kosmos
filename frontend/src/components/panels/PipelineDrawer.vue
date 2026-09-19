@@ -9,10 +9,9 @@ import { useLiveStore } from '@/stores/live'
 import { useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
 import JobRow from './JobRow.vue'
-import LiveAcquire from './LiveAcquire.vue'
 
 type Kind = 'af' | 'bs'
-type Section = 'run' | 'live' | 'quality'
+type Section = 'run' | 'quality'
 
 const QualityTab = defineAsyncComponent(() => import('./tabs/QualityTab.vue'))
 
@@ -22,7 +21,6 @@ const query = useQueryStore()
 
 const SECTIONS = [
   { value: 'run' as const, label: 'Обработка сцен', hint: 'Загрузить свою сцену и посмотреть ход обработки' },
-  { value: 'live' as const, label: 'Снимки со спутника', hint: 'Выбрать любую область: сервис сам скачает Sentinel-2 и найдёт гарь' },
   { value: 'quality' as const, label: 'Качество моделей', hint: 'Сравнение с эталонной разметкой на сценах текущего запроса' },
 ]
 const KINDS = [
@@ -130,8 +128,6 @@ onMounted(() => live.loadJobs())
       </div>
 
       <div v-else class="thin-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4">
-        <LiveAcquire v-if="section === 'live'" />
-        <template v-else>
         <div class="flex items-center justify-between gap-3">
           <BubbleTabs v-model="kind" :options="KINDS" size="sm" />
           <Button v-tip="'Берёт случайную готовую сцену и проводит её через весь конвейер заново. Удобно показать живой ход обработки без файлов под рукой'" size="sm" variant="secondary" @click="replayRandom"><RefreshCw />Прогнать готовую сцену</Button>
@@ -168,7 +164,6 @@ onMounted(() => live.loadJobs())
           {{ sending ? 'Загружаем...' : missing.length ? `Не хватает файлов: ${missing.length}` : datesReady ? 'Отправить в обработку' : 'Укажите даты съёмки' }}
         </Button>
         <p v-if="message" class="text-xs" :class="message.tone === 'ok' ? 'text-tertiary' : 'text-destructive'">{{ message.text }}</p>
-        </template>
 
         <div class="rounded-[22px] bg-surface-2 p-4">
           <div class="flex items-baseline justify-between text-[13px]">

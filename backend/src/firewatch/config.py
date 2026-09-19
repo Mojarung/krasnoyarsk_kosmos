@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     live_search_days: int = 12
     live_candidates: int = 4
 
+    # NASA FIRMS Area API. A free MAP_KEY is required by NASA for CSV access.
+    firms_map_key: str = ""
+    firms_base_url: str = "https://firms.modaps.eosdis.nasa.gov"
+    firms_max_days: int = 120
+
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
@@ -61,6 +66,10 @@ class Settings(BaseSettings):
     @property
     def llm_enabled(self) -> bool:
         return bool(self.llm_base_url and self.llm_model)
+
+    @property
+    def firms_enabled(self) -> bool:
+        return bool(self.firms_map_key)
 
 
 @lru_cache
