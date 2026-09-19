@@ -26,6 +26,7 @@ from firewatch.infra import s3
 from firewatch.infra.broker import broker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 DESCRIPTION = """
 Сервис отвечает на пространственно-временной запрос: полигон или bbox плюс интервал дат.
