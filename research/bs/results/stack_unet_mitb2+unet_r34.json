@@ -1,0 +1,47 @@
+{
+ "class_weights": [
+  1.0,
+  1.5,
+  1.5,
+  1.5
+ ],
+ "iou_burn": 0.7267718970885011,
+ "miou_sev": 0.6968125306374356,
+ "iou_sev": [
+  0.5965111935943227,
+  0.693585420224659,
+  0.8003409780933253
+ ],
+ "bs_score": 0.4634139231722061,
+ "importance_gain": {
+  "gbm_p3": 0.1831,
+  "unet_mitb2_p0": 0.1796,
+  "gbm_p2": 0.1705,
+  "gbm_p1": 0.1026,
+  "unet_mitb2_p1": 0.0724,
+  "gbm_p0": 0.0586,
+  "unet_mitb2_p2": 0.0525,
+  "unet_mitb2_burn_5": 0.0369,
+  "d_nbr": 0.0263,
+  "unet_mitb2_burn_41": 0.0199,
+  "unet_mitb2_burn_15": 0.0085,
+  "d_nbr_rank": 0.0078,
+  "post_nbr": 0.0074,
+  "unet_r34_burn_41": 0.0064,
+  "abs_col": 0.0064,
+  "pre_ndvi": 0.0064,
+  "unet_mitb2_p3": 0.0062,
+  "unet_r34_p3": 0.0058,
+  "unet_r34_p1": 0.0057,
+  "dist_center": 0.0052,
+  "unet_r34_burn_5": 0.0047,
+  "abs_row": 0.0047,
+  "d_nbr_mean_5": 0.0045,
+  "unet_r34_p2": 0.0036,
+  "landcover": 0.0036,
+  "unet_r34_p0": 0.0034,
+  "unet_r34_burn_15": 0.0033,
+  "d_nbr_mean_15": 0.0026,
+  "valid": 0.0015
+ }
+}

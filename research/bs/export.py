@@ -1,6 +1,6 @@
 """Перенос обученных сетей в пакет fire_ml: веса в fp16 и описание групп сетей для ансамбля.
 
-Запуск: python research/bs/export.py <tag>:<arch>:<encoder> [<tag>:<arch>:<encoder> ...]
+Запуск: python research/bs/export.py <файлы>:<arch>:<encoder>:<тег в стекинге> [...]
 """
 
 from __future__ import annotations
@@ -17,11 +17,13 @@ TARGET = Path("ml/src/fire_ml/weights")
 
 
 def main() -> None:
-    groups = [dict(zip(("tag", "arch", "encoder"), spec.split(":"), strict=True)) for spec in sys.argv[1:]]
+    groups = [
+        dict(zip(("files", "arch", "encoder", "tag"), spec.split(":"), strict=True)) for spec in sys.argv[1:]
+    ]
     for old in [*TARGET.glob("bs_net_*.pt"), *TARGET.glob("bs_unet_*.pt")]:
         old.unlink()
     for group in groups:
-        for path in sorted(SOURCE.glob(f"{group['tag']}_fold*.pt")):
+        for path in sorted(SOURCE.glob(f"{group['files']}_fold*.pt")):
             state = {
                 k: (v.half() if v.is_floating_point() else v)
                 for k, v in torch.load(path, map_location="cpu").items()
@@ -29,7 +31,7 @@ def main() -> None:
             target = TARGET / f"bs_net_{path.stem}.pt"
             torch.save(state, target)
             print(target.name, target.stat().st_size // 2**20, "MB")
-        group["weights_glob"] = f"bs_net_{group['tag']}_fold*.pt"
+        group["weights_glob"] = f"bs_net_{group['files']}_fold*.pt"
 
     gbm = json.loads((RESULTS / "gbm_tuned.json").read_text(encoding="utf-8"))
     config = {"cnn": groups, "gbm_only": gbm}

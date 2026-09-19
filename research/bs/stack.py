@@ -19,10 +19,11 @@ from sklearn.model_selection import GroupKFold
 
 from blend import compact, tune
 from build_dataset import NODATA, STRIDE
-from experiments import BS, N_FOLDS, OUT, SEED
+from experiments import BS, N_FOLDS, OUT, SEED, case_metrics
 
 WEIGHTS = Path("ml/src/fire_ml/weights")
 WINDOWS = (5, 15, 41)
+POSITION = ("dist_center", "abs_row", "abs_col")
 RAW = ("d_nbr", "d_nbr_mean_5", "d_nbr_mean_15", "landcover", "d_nbr_rank", "post_nbr", "pre_ndvi", "valid")
 PARAMS = {
     "objective": "multiclass",
@@ -41,12 +42,43 @@ PARAMS = {
 }
 
 
+def position_layers(shape: tuple[int, int]) -> list[np.ndarray]:
+    """Чипы вырезаны вокруг события: доля гари среди высокого dNBR падает с 57% в центре до 20% в углах."""
+    rows, cols = np.mgrid[0 : shape[0], 0 : shape[1]].astype(np.float32)
+    rows, cols = rows / (shape[0] - 1) - 0.5, cols / (shape[1] - 1) - 0.5
+    return [np.hypot(rows, cols), np.abs(rows), np.abs(cols)]
+
+
+def seed_mean(tag: str, masks: np.ndarray) -> np.ndarray:
+    """Сиды одной архитектуры пишутся через плюс и усредняются: unet_mitb2+unet_mitb2_s2."""
+    volumes = [np.load(OUT / f"oof_cnn_{part}.npy", mmap_mode="r") for part in tag.split("+")]
+    mean = (
+        np.mean([np.asarray(v, dtype=np.float32) for v in volumes], axis=0)
+        if len(volumes) > 1
+        else volumes[0]
+    )
+    return cnn_block(mean, masks)
+
+
+def position_block(masks: np.ndarray) -> np.ndarray:
+    parts = []
+    layers = position_layers(masks.shape[1:])
+    for index in range(len(masks)):
+        sl = (slice(index % STRIDE, None, STRIDE), slice((index // STRIDE) % STRIDE, None, STRIDE))
+        keep = masks[index][sl].ravel() != NODATA
+        parts.append(np.stack([layer[sl].ravel() for layer in layers], axis=1)[keep])
+    return np.concatenate(parts)
+
+
 def cnn_block(volume: np.ndarray, masks: np.ndarray) -> np.ndarray:
     parts = []
     for index in range(len(volume)):
         proba = np.asarray(volume[index], dtype=np.float32)
         burn = 1.0 - proba[0]
-        layers = [*proba, *(ndimage.uniform_filter(burn, window, mode="nearest") for window in WINDOWS)]
+        layers = [
+            *proba,
+            *(ndimage.uniform_filter(burn, window, mode="nearest") for window in WINDOWS),
+        ]
         sl = (slice(index % STRIDE, None, STRIDE), slice((index // STRIDE) % STRIDE, None, STRIDE))
         keep = masks[index][sl].ravel() != NODATA
         parts.append(np.stack([layer[sl].ravel() for layer in layers], axis=1)[keep])
@@ -66,15 +98,21 @@ def main() -> None:
     )
 
     masks = np.load(OUT / "cnn_cache.npz")["y"]
-    cnn = np.mean(
-        [cnn_block(np.load(OUT / f"oof_cnn_{tag}.npy", mmap_mode="r"), masks) for tag in tags], axis=0
+    # Каждая сеть идёт своими признаками: при усреднении слабая тянула сильную вниз (0,460 против 0,467).
+    cnn = np.concatenate(
+        [seed_mean(tag, masks) for tag in tags] + [position_block(masks)],
+        axis=1,
     )
     raw = np.stack([np.asarray(x[:, names.index(name)]) for name in RAW], axis=1)
     table = np.concatenate([np.load(OUT / "oof_gbm_full.npy"), cnn, raw], axis=1)[candidates]
     columns = [
         *(f"gbm_p{c}" for c in range(4)),
-        *(f"cnn_p{c}" for c in range(4)),
-        *(f"cnn_burn_{w}" for w in WINDOWS),
+        *(
+            name
+            for tag in tags
+            for name in (*(f"{tag}_p{c}" for c in range(4)), *(f"{tag}_burn_{w}" for w in WINDOWS))
+        ),
+        *POSITION,
         *RAW,
     ]
     target, groups = y[candidates], events[candidates]
@@ -82,12 +120,23 @@ def main() -> None:
 
     proba = np.zeros((y.size, 4), dtype=np.float32)
     proba[:, 0] = 1.0
+    fold_of = np.full(y.size, -1, dtype=np.int8)
     for fold, (train_idx, valid_idx) in enumerate(GroupKFold(N_FOLDS).split(target, groups=groups)):
         model = lgb.LGBMClassifier(**PARAMS).fit(table[train_idx], target[train_idx], feature_name=columns)
         proba[candidates[valid_idx]] = model.predict_proba(table[valid_idx])
+        fold_of[candidates[valid_idx]] = fold
         print("fold", fold, flush=True)
     weights, metrics = tune(proba, y)
     report = {"class_weights": weights.round(3).tolist(), **metrics}
+    # Фон вне кандидатов относим к фолду по событию, иначе IoU по фолду считался бы без части пикселей.
+    event_fold = {e: f for e, f in zip(groups, fold_of[candidates], strict=True)}
+    fold_all = np.array([event_fold.get(e, -1) for e in events])
+    report["by_fold"] = [
+        compact(case_metrics(y[fold_all == f], (proba[fold_all == f] * weights).argmax(1)))
+        for f in range(N_FOLDS)
+    ]
+    for f, row in enumerate(report["by_fold"]):
+        print("  fold", f, row, flush=True)
     print("STACK", weights.round(2).tolist(), compact(metrics), flush=True)
 
     final = lgb.LGBMClassifier(**PARAMS | {"deterministic": True, "force_row_wise": True}).fit(

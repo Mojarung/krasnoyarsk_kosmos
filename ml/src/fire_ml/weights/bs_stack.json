@@ -4,13 +4,16 @@
   "gbm_p1",
   "gbm_p2",
   "gbm_p3",
-  "cnn_p0",
-  "cnn_p1",
-  "cnn_p2",
-  "cnn_p3",
-  "cnn_burn_5",
-  "cnn_burn_15",
-  "cnn_burn_41",
+  "unet_mitb2+unet_mitb2_s2_p0",
+  "unet_mitb2+unet_mitb2_s2_p1",
+  "unet_mitb2+unet_mitb2_s2_p2",
+  "unet_mitb2+unet_mitb2_s2_p3",
+  "unet_mitb2+unet_mitb2_s2_burn_5",
+  "unet_mitb2+unet_mitb2_s2_burn_15",
+  "unet_mitb2+unet_mitb2_s2_burn_41",
+  "dist_center",
+  "abs_row",
+  "abs_col",
   "d_nbr",
   "d_nbr_mean_5",
   "d_nbr_mean_15",
@@ -37,11 +40,11 @@
  ],
  "class_weights": [
   1.0,
-  2.0,
-  1.62,
-  1.62
+  1.8,
+  1.8,
+  1.8
  ],
  "cnn_tags": [
-  "unet_r34"
+  "unet_mitb2+unet_mitb2_s2"
  ]
 }
