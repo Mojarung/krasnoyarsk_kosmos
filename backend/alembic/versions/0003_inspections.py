@@ -9,8 +9,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # 0001 создаёт таблицы по текущим моделям, поэтому на чистой базе inspections уже есть.
     op.execute("""
-        CREATE TABLE inspections (
+        CREATE TABLE IF NOT EXISTS inspections (
             id uuid PRIMARY KEY,
             share_token varchar(64) NOT NULL UNIQUE,
             event_id varchar(80) NOT NULL,
@@ -22,7 +23,7 @@ def upgrade() -> None:
             created_at timestamptz NOT NULL DEFAULT now()
         )
     """)
-    op.create_index("ix_inspections_event_id", "inspections", ["event_id"])
+    op.execute("CREATE INDEX IF NOT EXISTS ix_inspections_event_id ON inspections (event_id)")
 
 
 def downgrade() -> None:
