@@ -135,6 +135,7 @@
   --radius-2xl: calc(var(--radius) + 12px);
   --ease-spring: var(--ease-spring);
   --ease-emphasized: var(--ease-emphasized);
+  --ease-standard: var(--ease-standard);
 }
 
 @layer base {
@@ -263,5 +264,27 @@ html.theme-anim *:not(.maplibregl-map):not(.maplibregl-map *) {
   html.theme-anim,
   html.theme-anim * {
     transition: none !important;
+  }
+}
+
+/* Раскрытие темы кругом из кнопки. Старый снимок лежит неподвижно, новый
+   выезжает клипом — поэтому обе стандартные анимации отключены, иначе они
+   перекрестно гасят друг друга и получается мигание. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 0;
+}
+::view-transition-new(root) {
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

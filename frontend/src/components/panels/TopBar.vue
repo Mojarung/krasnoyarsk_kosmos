@@ -31,6 +31,14 @@ async function watchZone() {
   }
 }
 
+/** Круг раскрытия темы стартует из центра кнопки, а не из курсора: так это
+ * работает и при активации с клавиатуры, где координат нажатия нет. */
+function switchTheme(event: MouseEvent) {
+  const el = event.currentTarget as HTMLElement | null
+  const rect = el?.getBoundingClientRect()
+  ui.toggleTheme(rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined)
+}
+
 async function removeZone(id: number) {
   await api.deleteZone(id)
   await live.loadZones()
@@ -97,7 +105,7 @@ async function removeZone(id: number) {
       </Popover>
 
       <Button v-tip="'Документация REST API и OGC API Features'" variant="ghost" size="icon" as="a" href="/docs" target="_blank" rel="noopener noreferrer" aria-label="Документация REST API"><BookOpen /></Button>
-      <Button v-tip="ui.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" variant="ghost" size="icon" aria-label="Сменить тему" @click="ui.toggleTheme"><component :is="ui.theme === 'dark' ? Sun : Moon" /></Button>
+      <Button v-tip="ui.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" variant="ghost" size="icon" aria-label="Сменить тему" @click="switchTheme"><component :is="ui.theme === 'dark' ? Sun : Moon" /></Button>
     </div>
   </header>
 </template>

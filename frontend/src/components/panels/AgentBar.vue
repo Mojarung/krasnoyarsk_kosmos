@@ -94,7 +94,7 @@ function close() {
       />
       <button
         type="submit"
-        class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[border-radius,transform,opacity] duration-300 ease-spring active:scale-90 active:rounded-xl disabled:opacity-40"
+        class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[transform,opacity] duration-200 ease-standard active:scale-90 disabled:opacity-40"
         :disabled="busy || !input.trim()"
         aria-label="Отправить"
       >
