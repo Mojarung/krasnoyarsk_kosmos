@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.config import get_settings
 from firewatch.domain.catalog import HOTSPOT_KIND_LABELS, LC_GROUP_LABELS, SEVERITY_LABELS, lc_group
+from firewatch.pipeline.frp import I4_SATURATION_K
 
 CLUSTER_EPSG = 32638
 QUERY_GEOM = "ST_SetSRID(ST_GeomFromGeoJSON(:geometry), 4326)"
@@ -112,7 +113,7 @@ _HOTSPOTS = text(
     f"""
     WITH q AS (SELECT {QUERY_GEOM} AS geom)
     SELECT h.id, ST_X(h.geom) AS lon, ST_Y(h.geom) AS lat, h.acquired_at, h.satellite, h.scene_id,
-           {_KIND_SQL} AS kind, h.code, h.persistent, h.bt_i4, h.bt_i5, h.confidence, h.landcover,
+           {_KIND_SQL} AS kind, h.code, h.persistent, h.bt_i4, h.bt_i5, h.frp_mw, h.confidence, h.landcover,
            h.is_night, h.t2m, h.rh2m, h.wind_speed, p.n_days, p.n_years, p.n_passes
     FROM hotspots h
     CROSS JOIN q
@@ -232,6 +233,8 @@ def _hotspot_feature(row: dict[str, Any]) -> dict[str, Any]:
             "scene_id": row["scene_id"],
             "bt_i4": round(row["bt_i4"], 1),
             "bt_i5": round(row["bt_i5"], 1),
+            "frp_mw": _rounded(row["frp_mw"]),
+            "frp_saturated": row["bt_i4"] >= I4_SATURATION_K,
             "confidence": round(row["confidence"], 2),
             "landcover": LC_GROUP_LABELS[lc_group(row["landcover"])],
             "is_night": row["is_night"],

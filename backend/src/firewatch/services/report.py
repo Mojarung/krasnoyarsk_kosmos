@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from firewatch.config import get_settings
 from firewatch.domain.catalog import LC_GROUP_LABELS, SEVERITY_LABELS
-from firewatch.services import metrics
+from firewatch.services import emissions, metrics
 from firewatch.services import query as q
 from firewatch.services.restoration import build_plan
 
@@ -119,5 +119,6 @@ async def build_report(session: AsyncSession, query: q.SpatioTemporalQuery) -> d
         "hotspots": _hotspot_block(summary, satellites) | await metrics.fetch_hotspot_metrics(session, query),
         "quality": await metrics.fetch_quality(session, query),
         "restoration": build_plan(landcover),
+        "emissions": emissions.build_estimate(landcover),
         "method": METHOD | {"hotspots": METHOD["hotspots"].format(eps=get_settings().dispatch_cluster_m)},
     }

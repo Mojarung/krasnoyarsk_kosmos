@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { api, ApiError } from '@/lib/api'
-import type { AreaGeometry, Meta, QueryResult, TimelineDay } from '@/lib/types'
+import type { AreaGeometry, Meta, Profile, QueryResult, TimelineDay } from '@/lib/types'
 
 export const AOI_REGION_ID = 'aoi'
 const FALLBACK_RANGE = { from: '2019-04-01', to: '2024-11-30' }
@@ -16,7 +16,9 @@ export const useQueryStore = defineStore('query', () => {
   const result = shallowRef<QueryResult | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const profile = shallowRef<Profile | null>(null)
   let controller: AbortController | null = null
+  let profileController: AbortController | null = null
 
   const report = computed(() => result.value?.report ?? null)
   const params = computed(() =>
@@ -50,6 +52,7 @@ export const useQueryStore = defineStore('query', () => {
     controller = new AbortController()
     loading.value = true
     error.value = null
+    profile.value = null
     try {
       result.value = await api.query(params.value, controller.signal)
     } catch (e) {
@@ -57,6 +60,19 @@ export const useQueryStore = defineStore('query', () => {
       error.value = e instanceof ApiError ? e.message : 'Сервис недоступен'
     } finally {
       loading.value = false
+    }
+  }
+
+  /** Профиль территории считается по всем годам и запрашивается отдельно: он нужен, только когда открыта вкладка. */
+  async function loadProfile() {
+    if (!params.value) return
+    profileController?.abort()
+    profileController = new AbortController()
+    try {
+      profile.value = await api.profile(params.value, profileController.signal)
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      error.value = e instanceof ApiError ? e.message : 'Сервис недоступен'
     }
   }
 
@@ -90,6 +106,7 @@ export const useQueryStore = defineStore('query', () => {
 
   return {
     meta, timeline, geometry, regionId, dateFrom, dateTo, result, report, params, loading, error, regionName,
+    profile, loadProfile,
     bootstrap, refreshMeta, run, selectRegion, setCustomGeometry, setPeriod, apply,
   }
 })

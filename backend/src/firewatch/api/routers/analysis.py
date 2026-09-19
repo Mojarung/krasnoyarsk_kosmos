@@ -19,6 +19,7 @@ from firewatch.services.export import (
     export_report,
     export_vector,
 )
+from firewatch.services.profile import build_profile
 from firewatch.services.report import build_report
 from firewatch.services.tiles import warm_tiles
 
@@ -177,3 +178,21 @@ async def post_report(
     body: QueryBody, session: Session, format: ReportFormat = "json", tz_offset: TzOffset = 0
 ) -> Any:
     return await _report(session, body.to_query(), format, tz_offset)
+
+
+async def _profile(session: AsyncSession, query: q.SpatioTemporalQuery) -> dict[str, Any]:
+    key = {"g": query.geometry, "y": [query.date_from.year, query.date_to.year]}
+    return await cached("profile", key, lambda: build_profile(session, query))
+
+
+@router.get(
+    "/profile",
+    summary="Профиль территории за все годы: межгодовой ход, сезонность, повторяемость горимости",
+)
+async def get_profile(query: GetQuery, session: Session) -> dict[str, Any]:
+    return await _profile(session, query)
+
+
+@router.post("/profile", summary="Профиль территории по полигону")
+async def post_profile(body: QueryBody, session: Session) -> dict[str, Any]:
+    return await _profile(session, body.to_query())

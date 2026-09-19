@@ -1,5 +1,18 @@
 import type { AddLayerObject, ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
+/** Множитель размера термоточки по её мощности излучения: 0 МВт - вдвое мельче, 9 МВт - в полтора раза крупнее. */
+const POWER_SCALE: ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['sqrt', ['max', ['coalesce', ['get', 'frp_mw'], 0], 0]],
+  0,
+  0.55,
+  1,
+  0.9,
+  3,
+  1.5,
+]
+
 export const SRC = {
   basemapSat: 'basemap-sat',
   aoi: 'aoi',
@@ -198,7 +211,8 @@ export function overlayLayers(): AddLayerObject[] {
       source: SRC.hotspots,
       filter: ['==', ['get', 'kind'], 'fire'],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 9, 12, 13, 26],
+        // Размер ореола несёт мощность излучения: корень из FRP, чтобы площадь пятна росла с ней линейно.
+        'circle-radius': ['*', ['interpolate', ['linear'], ['zoom'], 4, 5, 9, 12, 13, 26], POWER_SCALE],
         'circle-color': '#f7774a',
         'circle-blur': 1,
         'circle-opacity': 0.42,

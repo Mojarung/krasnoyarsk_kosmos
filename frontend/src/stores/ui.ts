@@ -4,7 +4,7 @@ import { computed, ref, shallowRef, watchEffect } from 'vue'
 
 export type Basemap = 'dark' | 'satellite'
 export type DrawMode = 'idle' | 'polygon' | 'rectangle'
-export type InsightView = 'overview' | 'dynamics' | 'restoration' | 'alarms'
+export type InsightView = 'overview' | 'dynamics' | 'emissions' | 'profile' | 'restoration' | 'alarms'
 export type DayNight = 'all' | 'day' | 'night'
 
 export interface DisplayFilters {

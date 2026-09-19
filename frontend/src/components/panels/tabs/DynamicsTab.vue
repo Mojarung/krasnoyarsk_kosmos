@@ -3,13 +3,18 @@ import { computed, ref } from 'vue'
 import BarList, { type BarListItem } from '@/components/common/BarList.vue'
 import MonthBars from '@/components/common/MonthBars.vue'
 import StatRows, { type StatRow } from '@/components/common/StatRows.vue'
-import { denseMonths, fmt, monthRange } from '@/lib/format'
+import { denseMonths, fmt, monthRange, plural } from '@/lib/format'
 import { LANDCOVER_HINTS, SATELLITE_INFO, TERMS } from '@/lib/glossary'
 import type { Report } from '@/lib/types'
+import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ report: Report }>()
+const ui = useUiStore()
 
 const FIRE_HINT = 'Число природных термоточек VIIRS 375 м по месяцу пролёта, техногенные и блики исключены. Наведите курсор или используйте стрелки, чтобы пройти по месяцам'
+const POWER_HINT = 'Мощность излучения пожара, FRP: сколько энергии очаг отдаёт в момент пролёта. Растёт со скоростью, с которой сгорает топливо, поэтому отличает сильный пожар от тлеющего пала. Метод MIR-radiance, как в продуктах MODIS и VIIRS'
+const POWER_MAX_HINT = 'Самый мощный пиксел VIIRS 375 м за период. Пиксел, где канал I4 насытился, показан как оценка снизу'
+const TOP_FIRES_HINT = 'Очаги за сутки, сложенные по мощности: где в этот день горело сильнее всего'
 const BURN_HINT = 'Площадь гарей, обрезанная по контуру запроса, по месяцу послепожарного снимка. Месяцы без съёмки показаны нулём'
 
 /** Общая ось месяцев для обоих графиков: пропуски заполняем нулями, иначе столбики не сопоставимы по времени. */
@@ -26,6 +31,7 @@ const cursor = ref<number | null>(null)
 
 const fireLandcover = computed<BarListItem[]>(() => props.report.hotspots.by_landcover.map((l) => ({ key: l.landcover, label: l.label, value: l.n, hint: LANDCOVER_HINTS[l.label] })))
 const burnLandcover = computed<BarListItem[]>(() => props.report.burn.by_landcover.map((l) => ({ key: l.landcover, label: l.label, value: Math.round(l.area_ha), hint: LANDCOVER_HINTS[l.label] })))
+const topFires = computed(() => props.report.hotspots.power.top)
 const satellites = computed<BarListItem[]>(() => Object.entries(props.report.hotspots.by_satellite).map(([name, n]) => {
     const info = SATELLITE_INFO[name.toUpperCase()]
     return { key: name, label: info?.label ?? name.toUpperCase(), value: n, hint: info?.hint }
@@ -36,6 +42,8 @@ const hotspotRows = computed<StatRow[]>(() => {
   return [
     { label: 'Температура термоточек, средняя', value: `${fmt.num(h.bt_i4_mean_k)} K`, hint: TERMS.btMean },
     { label: 'Самая горячая термоточка', value: `${fmt.num(h.bt_i4_max_k)} K`, hint: TERMS.btMax },
+    { label: 'Суммарная мощность излучения', value: `${fmt.compact(h.power.total_mw ?? 0)} МВт`, hint: POWER_HINT },
+    { label: 'Самая мощная термоточка', value: `${fmt.num(h.power.max_mw)} МВт`, hint: POWER_MAX_HINT },
     { label: 'Замечено ночью', value: fmt.pct(h.night_share), hint: TERMS.nightShare },
     { label: 'Дней с огнём', value: fmt.int(h.active_days), hint: TERMS.activeDays },
   ]
@@ -86,6 +94,19 @@ const burnRows = computed<StatRow[]>(() => {
       <div class="grid items-start gap-6 @2xl:grid-cols-2">
         <BarList title="Термоточки по типу территории" :hint="TERMS.landcover" unit="точек" color="var(--fire)" :items="fireLandcover" />
         <BarList title="Гари по типу территории" :hint="TERMS.landcover" unit="га" color="var(--sev-2)" :items="burnLandcover" :format="fmt.ha" />
+      </div>
+
+      <div v-if="topFires.length">
+        <div class="label-caps mb-1.5"><span v-tip="TOP_FIRES_HINT" class="term">Самые мощные очаги</span></div>
+        <div class="grid gap-1.5 @2xl:grid-cols-2">
+          <button v-for="fire in topFires" :key="`${fire.day}-${fire.lon}`" type="button" class="rounded-[20px] bg-surface-2 px-4 py-3 text-left transition-colors duration-300 hover:bg-surface-3" @click="ui.flyTarget = { lon: fire.lon, lat: fire.lat, zoom: 11 }">
+            <div class="flex items-start justify-between gap-3">
+              <span class="text-[13px] leading-snug">{{ fmt.dayMonth(fire.day) }} {{ fire.day.slice(0, 4) }}</span>
+              <span class="shrink-0 text-[13px] font-semibold tabular-nums">{{ fmt.num(fire.frp_mw) }} МВт</span>
+            </div>
+            <div class="mt-1 text-xs text-muted-foreground">{{ fire.label }}, {{ plural(fire.hotspots, ['термоточка', 'термоточки', 'термоточек']) }}</div>
+          </button>
+        </div>
       </div>
     </div>
 

@@ -4,6 +4,7 @@ import type {
   AreaGeometry,
   Meta,
   PipelineMetrics,
+  Profile,
   Quality,
   QueryResult,
   SceneSummary,
@@ -60,6 +61,7 @@ export const api = {
   jobs: () => request<{ counts: Record<string, number>; items: import('./types').JobEvent[] }>(`${BASE}/jobs?limit=12`),
   pipelineMetrics: () => request<PipelineMetrics>(`${BASE}/metrics/pipeline`),
   quality: () => request<Quality | null>(`${BASE}/metrics/quality`),
+  profile: (params: QueryParams, signal?: AbortSignal) => post<Profile>(`${BASE}/profile`, params, signal),
   zones: () => request<Zone[]>(`${BASE}/zones`),
   createZone: (name: string, geometry: AreaGeometry, webhook_url: string | null) =>
     post<Zone>(`${BASE}/zones`, { name, geometry, webhook_url }),

@@ -24,3 +24,12 @@ research/af/results/*.npy
 
 # Снимки экрана регенерируются: node design/capture.mjs
 design/screens/
+
+research/bs/results/*.npy
+research/bs/results/*.npz
+research/bs/results/*.parquet
+research/bs/results/*.log
+research/bs/weights/
+DATA.7z
+ml/src/fire_ml/weights/bs_net_*.pt
+submissions/

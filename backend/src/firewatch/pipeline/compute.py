@@ -13,6 +13,7 @@ from fire_ml.baseline import NIGHT_SOLAR_ZENITH_DEG, nbr
 from fire_ml.io import load_af_chip, load_bs_chip, read_raster
 from firewatch.domain.catalog import lc_group
 from firewatch.pipeline import quicklook
+from firewatch.pipeline.frp import frp_mw
 from firewatch.pipeline.georef import GeoRef
 from firewatch.pipeline.vectorize import BurnShape, SeverityShape, vectorize_severity
 
@@ -53,6 +54,7 @@ def compute_af(chip_id: str, paths: dict[str, Path], model: ActiveFireModel) -> 
     )
     viirs, aux = chip.viirs, chip.aux
     landcover = np.nan_to_num(aux[0]).astype(np.int16)
+    power = frp_mw(viirs[3], codes > 0, viirs[7] > 0.5, rows, cols, georef.pixel_area_ha * 10_000.0)
 
     hotspots = [
         {
@@ -63,6 +65,7 @@ def compute_af(chip_id: str, paths: dict[str, Path], model: ActiveFireModel) -> 
             "code": int(codes[r, c]),
             "bt_i4": float(viirs[3, r, c]),
             "bt_i5": float(viirs[4, r, c]),
+            "frp_mw": power[i],
             "confidence": float(confidence[r, c]),
             "landcover": int(landcover[r, c]),
             "is_night": bool(viirs[5, r, c] >= NIGHT_SOLAR_ZENITH_DEG),
@@ -77,6 +80,7 @@ def compute_af(chip_id: str, paths: dict[str, Path], model: ActiveFireModel) -> 
         "fire_px": int((codes == AfCode.FIRE).sum()),
         "technogenic_px": int((codes == AfCode.TECHNOGENIC).sum()),
         "glint_px": int((codes == AfCode.GLINT).sum()),
+        "frp_mw": round(sum(h["frp_mw"] or 0.0 for h in hotspots if h["code"] == AfCode.FIRE), 2),
     }
     if (mask_path := paths.get("mask")) and mask_path.exists():
         stats["quality"] = {"fire": _confusion(codes == AfCode.FIRE, read_raster(mask_path)[0] == 1)}
