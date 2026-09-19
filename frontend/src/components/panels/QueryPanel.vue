@@ -190,7 +190,7 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
           <div>
             <div class="mb-1.5 text-xs text-muted-foreground">Уверенность модели не ниже</div>
             <div class="flex gap-1.5">
-              <Button v-for="step in CONFIDENCE_STEPS" :key="step" v-tip="step ? `Только термоточки с вероятностью горения от ${step}` : 'Все термоточки выше порога модели'" size="xs" :variant="ui.filters.minConfidence === step ? 'tonal' : 'outline'" class="flex-1" @click="ui.filters.minConfidence = step">{{ step ? step.toFixed(1) : 'любая' }}</Button>
+              <Button v-for="step in CONFIDENCE_STEPS" :key="step" v-tip="step ? `Только термоточки с вероятностью горения от ${step}` : 'Все термоточки выше порога модели'" size="xs" :variant="ui.filters.minConfidence === step ? 'tonal' : 'outline'" class="flex-1" @click="ui.filters.minConfidence = step">{{ step ? fmt.num(step) : 'любая' }}</Button>
               <input
                 v-tip="'Своё значение от 0 до 1'"
                 type="number"

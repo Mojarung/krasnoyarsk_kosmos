@@ -56,6 +56,25 @@ watch([mapReady, booted], async ([map, data]) => {
 })
 watch(() => ui.pipelineOpen, (open) => open && (pipelineMounted.value = true))
 
+/*
+ * Карточка «до/после» шириной 720 px ложилась поверх сводки и резала главное
+ * число. Шкала времени при сравнении уже уезжает — обе панели сворачиваются в
+ * плитку по тому же поводу и возвращаются, когда карточку закрыли.
+ */
+let panelsWereOpen: [boolean, boolean] = [true, true]
+watch(
+  () => ui.compareSceneId,
+  (id, previous) => {
+    if (id && !previous) {
+      panelsWereOpen = [ui.insightOpen, ui.queryOpen]
+      ui.insightOpen = false
+      ui.queryOpen = false
+    } else if (!id && previous) {
+      ;[ui.insightOpen, ui.queryOpen] = panelsWereOpen
+    }
+  },
+)
+
 onMounted(boot)
 </script>
 
@@ -94,6 +113,24 @@ onMounted(boot)
         <SceneCompare v-if="ui.compareSceneId" class="pointer-events-auto" @quicklook="(name) => mapView?.setSceneQuicklook(name)" />
       </Transition>
     </div>
+
+    <!--
+      Подсказка по рисованию жила только в боковой панели, а в этот момент
+      пользователь смотрит на карту. Интуитивная попытка протянуть мышью вместо
+      двух кликов панорамирует карту и уносит её с территории.
+    -->
+    <Transition
+      enter-active-class="transition-[opacity,transform] duration-300 ease-spring"
+      enter-from-class="opacity-0 -translate-y-2"
+      leave-active-class="transition-opacity duration-200"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="ui.drawMode !== 'idle'" class="pointer-events-none absolute inset-x-0 top-20 z-30 flex justify-center">
+        <p class="panel !rounded-full px-5 py-2 text-[13px] font-medium">
+          {{ ui.drawMode === 'rectangle' ? 'Кликните два противоположных угла' : 'Ставьте вершины кликами, замкните на первой' }}
+        </p>
+      </div>
+    </Transition>
 
     <div class="pointer-events-none absolute inset-x-0 top-20 z-30 flex justify-center"><AlertToast class="pointer-events-auto" /></div>
     <PipelineDrawer v-if="pipelineMounted" />

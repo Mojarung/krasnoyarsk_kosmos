@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { api } from '@/lib/api'
 import { APP_NAME, APP_TAGLINE } from '@/lib/brand'
-import { fmt } from '@/lib/format'
+import { fmt, plural } from '@/lib/format'
 import { useLiveStore } from '@/stores/live'
 import { useQueryStore } from '@/stores/query'
 import { useUiStore } from '@/stores/ui'
@@ -52,7 +52,7 @@ async function removeZone(id: number) {
       <div class="leading-none">
         <div class="text-sm font-semibold tracking-tight">{{ APP_NAME }}</div>
         <div class="mt-0.5 hidden text-[10px] text-muted-foreground sm:block">
-          <template v-if="data">{{ data.af_scenes + data.bs_scenes }} сцен, {{ fmt.compact(data.hotspots) }} термоточек</template>
+          <template v-if="data">{{ plural(data.af_scenes + data.bs_scenes, ['сцена', 'сцены', 'сцен']) }}, {{ fmt.compact(data.hotspots) }} термоточек</template>
           <template v-else>{{ APP_TAGLINE }}</template>
         </div>
       </div>

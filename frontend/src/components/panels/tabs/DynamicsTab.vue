@@ -53,7 +53,7 @@ const burnRows = computed<StatRow[]>(() => {
   return [
     { label: 'Гарь: типичная и наибольшая', value: `${fmt.ha(b.median_ha)} / ${fmt.ha(b.max_ha)} га`, hint: TERMS.contourSize },
     { label: 'Доля территории запроса', value: fmt.pct(b.burned_share), hint: `${TERMS.burnedShare}. Площадь территории: ${fmt.int(b.query_area_km2)} км²` },
-    { label: 'Средняя степень поражения', value: b.severity_index?.toFixed(2) ?? '—', hint: TERMS.severityIndex },
+    { label: 'Средняя степень поражения', value: fmt.ratio(b.severity_index), hint: TERMS.severityIndex },
   ]
 })
 </script>
