@@ -4,16 +4,33 @@
   "gbm_p1",
   "gbm_p2",
   "gbm_p3",
-  "unet_mitb2+unet_mitb2_s2_p0",
-  "unet_mitb2+unet_mitb2_s2_p1",
-  "unet_mitb2+unet_mitb2_s2_p2",
-  "unet_mitb2+unet_mitb2_s2_p3",
-  "unet_mitb2+unet_mitb2_s2_burn_5",
-  "unet_mitb2+unet_mitb2_s2_burn_15",
-  "unet_mitb2+unet_mitb2_s2_burn_41",
+  "region_mitb2_p0",
+  "region_mitb2_p1",
+  "region_mitb2_p2",
+  "region_mitb2_p3",
+  "region_mitb2_burn_5",
+  "region_mitb2_burn_15",
+  "region_mitb2_burn_41",
+  "region_mitb2_region",
+  "region_mitb2_region_5",
+  "region_mitb2_region_15",
+  "region_mitb2_region_41",
+  "region_mitb2_s2_p0",
+  "region_mitb2_s2_p1",
+  "region_mitb2_s2_p2",
+  "region_mitb2_s2_p3",
+  "region_mitb2_s2_burn_5",
+  "region_mitb2_s2_burn_15",
+  "region_mitb2_s2_burn_41",
+  "region_mitb2_s2_region",
+  "region_mitb2_s2_region_5",
+  "region_mitb2_s2_region_15",
+  "region_mitb2_s2_region_41",
   "dist_center",
   "abs_row",
   "abs_col",
+  "rule_class",
+  "rule_margin",
   "d_nbr",
   "d_nbr_mean_5",
   "d_nbr_mean_15",
@@ -40,11 +57,17 @@
  ],
  "class_weights": [
   1.0,
-  1.8,
-  1.8,
-  1.8
+  1.5,
+  1.5,
+  1.215
  ],
  "cnn_tags": [
-  "unet_mitb2+unet_mitb2_s2"
- ]
+  "region_mitb2",
+  "region_mitb2_s2"
+ ],
+ "region_tags": [
+  "region_mitb2",
+  "region_mitb2_s2"
+ ],
+ "rule": true
 }

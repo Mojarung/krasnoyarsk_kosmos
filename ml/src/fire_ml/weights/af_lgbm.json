@@ -48,7 +48,7 @@
     "ndvi",
     "dem"
   ],
-  "threshold": 0.38,
+  "threshold": 0.43,
   "params": {
     "objective": "binary",
     "learning_rate": 0.05,
