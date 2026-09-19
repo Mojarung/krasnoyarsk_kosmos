@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — направление 01 «Вычитание»</title>
+<style>
+  :root{
+    --bg:#fbf8f6; --fg:#231d19; --s1:#f5efeb; --s2:#eee7e2; --s3:#e6ddd7;
+    --muted:#6e615a; --line:#d6c9c1; --accent:#84543e;
+    --sev1:#e0b21a; --sev2:#e8842a; --sev3:#a32a22; --fire:#d9552a;
+    --r-pill:999px; --r-panel:22px; --r-chip:12px;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:400 14px/1.45 "Roboto Flex","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+
+  .screen{position:relative;height:100dvh;overflow:hidden}
+
+  /* ---------- карта ---------- */
+  .map{position:absolute;inset:0}
+  .map svg{width:100%;height:100%;display:block}
+
+  /* ---------- хром поверх карты ---------- */
+  .chrome{position:absolute;inset:0;display:flex;flex-direction:column;
+    gap:12px;padding:16px;pointer-events:none}
+  .panel{background:rgb(251 248 246 / .82);backdrop-filter:blur(14px);
+    border:1px solid rgb(214 201 193 / .7);pointer-events:auto}
+
+  /* верх */
+  header{display:flex;align-items:flex-start;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;height:44px;
+    padding:6px 18px 6px 6px;border-radius:var(--r-pill)}
+  .mark{width:32px;height:32px;border-radius:var(--r-pill);background:var(--accent);
+    display:grid;place-items:center;flex:none}
+  .mark svg{width:16px;height:16px;fill:#fff}
+  .brand b{font-size:14px;font-weight:600;letter-spacing:-0.01em}
+  .tools{margin-left:auto;display:flex;gap:2px;height:44px;align-items:center;
+    padding:5px 6px;border-radius:var(--r-pill)}
+  .tool{width:34px;height:34px;border:0;background:none;border-radius:var(--r-pill);
+    color:var(--muted);display:grid;place-items:center;cursor:pointer}
+  .tool:hover{background:var(--s3);color:var(--fg)}
+  .tool svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7}
+
+  /* единственная панель — справа */
+  .body{display:flex;flex:1;min-height:0;align-items:flex-start;justify-content:flex-end}
+  .insight{width:330px;border-radius:var(--r-panel);padding:18px 18px 16px}
+
+  .kicker{font-size:12px;color:var(--muted)}
+  .headline{display:flex;align-items:baseline;gap:8px;margin-top:2px}
+  .headline .v{font-size:46px;font-weight:600;line-height:1;letter-spacing:-0.03em}
+  .headline .u{font-size:17px;color:var(--muted)}
+
+  .bar{display:flex;gap:2px;height:8px;margin:16px 0 10px;border-radius:var(--r-pill);overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:var(--r-pill)}
+
+  .sev{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .sev div{font-size:12px}
+  .sev .d{display:flex;align-items:center;gap:6px;color:var(--muted)}
+  .sev .d i{width:6px;height:6px;border-radius:var(--r-pill);flex:none}
+  .sev .n{margin-top:3px;font-weight:600;font-size:14px}
+
+  hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+
+  .rows{display:grid;gap:11px}
+  .row{display:flex;align-items:baseline;gap:10px;cursor:pointer}
+  .row:hover .lbl{color:var(--fg)}
+  .lbl{font-size:13px;color:var(--muted);flex:1;min-width:0}
+  .val{font-size:18px;font-weight:600}
+  .sub{font-size:12px;color:var(--muted)}
+
+  .spark{display:flex;align-items:flex-end;gap:3px;height:30px;margin-top:4px}
+  .spark i{flex:1;background:var(--sev2);border-radius:2px;opacity:.45}
+  .spark i.pk{opacity:1}
+
+  /* низ — таймлайн */
+  .foot{display:flex;justify-content:center}
+  .timeline{display:flex;align-items:center;gap:14px;height:46px;
+    padding:12px 20px;border-radius:var(--r-pill)}
+  .timeline .rng{font-size:13px;color:var(--muted)}
+  .track{position:relative;width:min(46vw,440px);height:3px;background:var(--s3);border-radius:var(--r-pill)}
+  .track i{position:absolute;inset-block:0;left:18%;right:22%;background:var(--accent);border-radius:var(--r-pill)}
+  .track b{position:absolute;top:50%;width:13px;height:13px;margin-top:-6.5px;
+    background:var(--bg);border:2px solid var(--accent);border-radius:var(--r-pill)}
+
+  @media (max-width:860px){
+    .insight{width:auto;flex:1}
+    .body{align-items:stretch}
+    .track{width:38vw}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- карта: тайга, реки, контуры гарей -->
+  <div class="map" aria-label="Карта региона с контурами гарей">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="land" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#eae3dc"/><stop offset="1" stop-color="#e2dbd2"/>
+      </linearGradient>
+      <pattern id="grid" width="90" height="90" patternUnits="userSpaceOnUse">
+        <path d="M90 0H0v90" fill="none" stroke="#d8cfc6" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="1440" height="900" fill="url(#land)"/>
+    <rect width="1440" height="900" fill="url(#grid)" opacity=".55"/>
+    <!-- массивы леса -->
+    <path d="M0 470 Q180 400 330 455 T640 430 Q800 395 940 455 T1240 430 L1440 470 V900 H0Z" fill="#e4ddc6" opacity=".75"/>
+    <path d="M0 620 Q220 575 420 618 T860 600 Q1080 565 1240 612 L1440 600 V900 H0Z" fill="#ddd4b8" opacity=".7"/>
+    <!-- реки -->
+    <path d="M-20 300 C220 330 300 430 520 455 S840 520 1050 470 1330 520 1460 495" fill="none" stroke="#c3cdd2" stroke-width="7" stroke-linecap="round"/>
+    <path d="M560 900 C600 720 540 640 600 520" fill="none" stroke="#c3cdd2" stroke-width="5" stroke-linecap="round"/>
+    <!-- контуры гарей -->
+    <g opacity=".92">
+      <path d="M104 18 C150 6 206 24 224 62 C238 92 214 110 228 136 C240 160 212 190 170 194 C132 198 116 176 86 180 C50 185 22 162 20 128 C18 96 46 86 42 62 C38 36 66 28 104 18 Z" transform="translate(352,318) scale(.62) rotate(-8)" fill="#a32a22" fill-opacity=".3" stroke="#a32a22" stroke-width="2"/>
+      <path d="M138 62 C170 54 200 70 202 96 C204 122 180 136 152 134 C124 132 108 114 112 92 C116 72 122 66 138 62 Z" transform="translate(352,318) scale(.62) rotate(-8)" fill="#a32a22" fill-opacity=".45"/>
+      <path d="M78 10 C118 2 160 20 172 50 C182 76 158 90 168 112 C176 132 148 148 112 146 C82 144 74 128 50 130 C24 132 8 112 12 86 C16 62 38 56 38 38 C38 20 52 15 78 10 Z" transform="translate(788,232) scale(.72) rotate(12)" fill="#e8842a" fill-opacity=".3" stroke="#e8842a" stroke-width="2"/>
+      <path d="M64 8 C98 2 132 18 140 44 C146 66 126 76 134 94 C140 110 116 124 86 122 C62 120 56 108 36 110 C16 112 6 94 10 74 C14 54 30 50 30 34 C30 18 42 12 64 8 Z" transform="translate(1028,566) scale(.68) rotate(-14)" fill="#e0b21a" fill-opacity=".32" stroke="#e0b21a" stroke-width="2"/>
+      <path d="M52 6 C80 2 108 14 114 36 C119 54 102 62 108 76 C113 90 92 96 68 95 C48 94 44 84 28 86 C12 88 4 72 8 56 C12 40 24 37 24 26 C24 14 34 9 52 6 Z" transform="translate(214,648) scale(.72) rotate(9)" fill="#e8842a" fill-opacity=".26" stroke="#e8842a" stroke-width="2"/>
+    </g>
+    <!-- термоточки -->
+    <g fill="#d9552a">
+      <circle cx="470" cy="436" r="3.4"/><circle cx="486" cy="452" r="2.8"/><circle cx="456" cy="458" r="2.4"/>
+      <circle cx="878" cy="318" r="3.4"/><circle cx="896" cy="336" r="2.6"/><circle cx="862" cy="340" r="2.2"/>
+      <circle cx="1094" cy="636" r="3"/><circle cx="1112" cy="650" r="2.2"/>
+      <circle cx="276" cy="706" r="2.8"/><circle cx="294" cy="718" r="2.2"/>
+    </g>
+  </svg>
+  </div>
+
+  <div class="chrome">
+    <header>
+      <div class="panel brand">
+        <span class="mark"><svg viewBox="0 0 24 24"><path d="M12 2c2.5 4.5-1 6 1.5 9 1.5-1 2-2.5 2-2.5 2 2.5 2.5 4.6 2.5 6.5a6 6 0 1 1-12 0c0-3.5 2.5-6 6-13Z"/></svg></span>
+        <b>Кордон</b>
+      </div>
+      <div class="panel tools">
+        <button class="tool" title="Конвейер"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="2"/><rect x="14" y="13" width="7" height="7" rx="2"/><path d="M10 7.5h4a2 2 0 0 1 2 2v3"/></svg></button>
+        <button class="tool" title="Зоны и алерты"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 19a2 2 0 0 0 3 0"/></svg></button>
+        <button class="tool" title="Справка API"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M4 18.5h15"/></svg></button>
+        <button class="tool" title="Тёмная тема"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+      </div>
+    </header>
+
+    <div class="body">
+      <section class="panel insight">
+        <div class="kicker">Пройдено огнём</div>
+        <div class="headline"><span class="v num">4 812</span><span class="u">га</span></div>
+
+        <div class="bar">
+          <i style="flex:44;background:var(--sev1)"></i>
+          <i style="flex:33;background:var(--sev2)"></i>
+          <i style="flex:23;background:var(--sev3)"></i>
+        </div>
+        <div class="sev">
+          <div><span class="d"><i style="background:var(--sev1)"></i>Слабая</span><span class="n num">2 140</span></div>
+          <div><span class="d"><i style="background:var(--sev2)"></i>Средняя</span><span class="n num">1 605</span></div>
+          <div><span class="d"><i style="background:var(--sev3)"></i>Сильная</span><span class="n num">1 067</span></div>
+        </div>
+
+        <hr>
+
+        <div class="rows">
+          <div class="row"><span class="lbl">Очаги</span><span class="val num">128</span></div>
+          <div class="row"><span class="lbl">Отсеяно ложных</span><span class="val num">271</span></div>
+          <div class="row"><span class="lbl">Нужны посадки</span><span class="val num">2 672</span><span class="sub">га</span></div>
+        </div>
+
+        <hr>
+
+        <div class="kicker">Пик — август</div>
+        <div class="spark">
+          <i style="height:9%"></i><i style="height:17%"></i><i style="height:31%"></i><i style="height:62%"></i><i class="pk" style="height:100%"></i>
+          <i style="height:46%"></i><i style="height:15%"></i>
+        </div>
+      </section>
+    </div>
+
+    <div class="foot">
+      <div class="panel timeline">
+        <span class="rng num">1 апреля</span>
+        <span class="track"><i></i><b style="left:18%"></b><b style="right:22%;margin-right:-6.5px"></b></span>
+        <span class="rng num">31 окт</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

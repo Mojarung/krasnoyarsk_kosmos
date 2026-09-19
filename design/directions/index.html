@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — шесть направлений обзорного экрана</title>
+<style>
+  :root{
+    --bg:#f4f5f3; --card:#fff; --fg:#16191a; --fg2:#5d6663; --hair:#dfe2df;
+    --accent:#2d5f52;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:400 15px/1.5 "Inter Tight","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:28px 24px 40px}
+  .num{font-variant-numeric:tabular-nums}
+
+  header{max-width:1320px;margin:0 auto 26px}
+  h1{font-size:27px;font-weight:600;letter-spacing:-0.02em;margin:0}
+  header p{margin:9px 0 0;max-width:62ch;color:var(--fg2)}
+  header .note{margin-top:14px;font-size:14px;color:var(--fg2);
+    border-left:2px solid var(--accent);padding-left:12px}
+
+  .grid{max-width:1320px;margin:0 auto;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:20px}
+
+  .card{background:var(--card);border:1px solid var(--hair);display:flex;flex-direction:column}
+  .shot{position:relative;aspect-ratio:16/10;overflow:hidden;background:#eceeec;
+    border-bottom:1px solid var(--hair)}
+  .shot iframe{position:absolute;top:0;left:0;width:400%;height:400%;border:0;
+    transform-origin:0 0;transform:scale(.25);pointer-events:none}
+  .shot a{position:absolute;inset:0;z-index:2}
+  .shot a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .meta{padding:15px 17px 17px}
+  .meta .n{font-size:14px;color:var(--fg2)}
+  .meta h2{font-size:19px;font-weight:600;letter-spacing:-0.015em;margin:2px 0 0}
+  .meta p{margin:8px 0 0;font-size:14px;color:var(--fg2)}
+  .meta dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:12px 0 0;
+    font-size:14px}
+  .meta dt{color:var(--fg2)}
+  .meta dd{margin:0}
+  .meta .open{display:inline-block;margin-top:13px;font-size:14px;font-weight:600;
+    color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor}
+
+  @media (max-width:520px){
+    body{padding:20px 14px 32px}
+    .grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Шесть направлений обзорного экрана</h1>
+  <p>Один и тот же экран — карта региона с итогом по площади гарей — в шести разных визуальных языках. Различаются не палитрой, а тем, что берётся за главный объект: карта, прибор, картографический лист, число, очередь инцидентов или время.</p>
+  <p class="note">Цифры демонстрационные и одинаковые во всех шести, чтобы сравнение было честным. Данных пока нет — на реальном наборе числа поедут, композиция нет.</p>
+</header>
+
+<div class="grid">
+
+  <article class="card">
+    <div class="shot"><iframe src="01-vychitanie/index.html" title="Превью направления «Вычитание»" loading="lazy"></iframe><a href="01-vychitanie/index.html" aria-label="Открыть направление «Вычитание»"></a></div>
+    <div class="meta">
+      <div class="n num">01</div><h2>Вычитание</h2>
+      <p>Нынешний язык, но текста и плашек вдвое меньше. Карта во весь экран, одна панель справа, всё остальное убрано.</p>
+      <dl>
+        <dt>Главный объект</dt><dd>карта</dd>
+        <dt>Тема</dt><dd>светлая</dd>
+        <dt>Риск</dt><dd>жюри не заметит разницы с текущим</dd>
+      </dl>
+      <a class="open" href="01-vychitanie/index.html">Открыть</a>
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="shot"><iframe src="02-teplovizor/index.html" title="Превью направления «Тепловизор»" loading="lazy"></iframe><a href="02-teplovizor/index.html" aria-label="Открыть направление «Тепловизор»"></a></div>
+    <div class="meta">
+      <div class="n num">02</div><h2>Тепловизор</h2>
+      <p>Интерфейс прибора: графитовая рейка отсчётов слева, справа — тепловое поле со сканирующей полосой. В хроме цвета нет вообще, цвет только в данных.</p>
+      <dl>
+        <dt>Главный объект</dt><dd>сигнал датчика</dd>
+        <dt>Тема</dt><dd>тёмная</dd>
+        <dt>Риск</dt><dd>ближе всех к «космическому штампу», держать строго приборным</dd>
+      </dl>
+      <a class="open" href="02-teplovizor/index.html">Открыть</a>
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="shot"><iframe src="03-planshet/index.html" title="Превью направления «Планшет»" loading="lazy"></iframe><a href="03-planshet/index.html" aria-label="Открыть направление «Планшет»"></a></div>
+    <div class="meta">
+      <div class="n num">03</div><h2>Планшет</h2>
+      <p>Картографический лист с полями: штриховка по степени поражения вместо заливки, условные знаки, масштабная линейка. Справка внизу выглядит как документ с печатью.</p>
+      <dl>
+        <dt>Главный объект</dt><dd>лист карты</dd>
+        <dt>Тема</dt><dd>бумага</dd>
+        <dt>Риск</dt><dd>засечный шрифт и штриховка хуже читаются с проектора</dd>
+      </dl>
+      <a class="open" href="03-planshet/index.html">Открыть</a>
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="shot"><iframe src="04-svodka/index.html" title="Превью направления «Сводка»" loading="lazy"></iframe><a href="04-svodka/index.html" aria-label="Открыть направление «Сводка»"></a></div>
+    <div class="meta">
+      <div class="n num">04</div><h2>Сводка</h2>
+      <p>Композицию держит типографика: главное число ростом в треть экрана, ведомость строками, карта уходит вправо как иллюстрация к тексту. Панелей нет ни одной.</p>
+      <dl>
+        <dt>Главный объект</dt><dd>число</dd>
+        <dt>Тема</dt><dd>светлая</dd>
+        <dt>Риск</dt><dd>карта теряет обязательные 60% площади</dd>
+      </dl>
+      <a class="open" href="04-svodka/index.html">Открыть</a>
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="shot"><iframe src="05-dispetcherskaya/index.html" title="Превью направления «Диспетчерская»" loading="lazy"></iframe><a href="05-dispetcherskaya/index.html" aria-label="Открыть направление «Диспетчерская»"></a></div>
+    <div class="meta">
+      <div class="n num">05</div><h2>Диспетчерская</h2>
+      <p>Консоль дежурного: очередь контуров справа, строка состояния внизу, карта посередине. Акцент интерфейса бирюзовый — огненные цвета не трогают ни одну кнопку.</p>
+      <dl>
+        <dt>Главный объект</dt><dd>очередь работ</dd>
+        <dt>Тема</dt><dd>тёмная</dd>
+        <dt>Риск</dt><dd>самый плотный, легко скатиться в шум</dd>
+      </dl>
+      <a class="open" href="05-dispetcherskaya/index.html">Открыть</a>
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="shot"><iframe src="06-lenta-vremeni/index.html" title="Превью направления «Лента времени»" loading="lazy"></iframe><a href="06-lenta-vremeni/index.html" aria-label="Открыть направление «Лента времени»"></a></div>
+    <div class="meta">
+      <div class="n num">06</div><h2>Лента времени</h2>
+      <p>Главная ось — не пространство, а время: лента дней во всю ширину сверху, карта полосой под ней, кадры «до/после» внизу. Пролистывание сезона как основное действие.</p>
+      <dl>
+        <dt>Главный объект</dt><dd>дата</dd>
+        <dt>Тема</dt><dd>светлая</dd>
+        <dt>Риск</dt><dd>карта зажата в полосу, площадь под вопросом</dd>
+      </dl>
+      <a class="open" href="06-lenta-vremeni/index.html">Открыть</a>
+    </div>
+  </article>
+
+</div>
+
+</body>
+</html>

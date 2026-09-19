@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кордон — направление 03 «Планшет»</title>
+<style>
+  :root{
+    --paper:#e7e9e4; --sheet:#f6f7f4; --ink:#1b211e; --ink2:#48524c;
+    --rule:#bfc4bb; --rule2:#d9ddd4; --seal:#2f5d4a;
+    --sev1:#c9a227; --sev2:#c76a25; --sev3:#96271f;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:400 14px/1.5 "Georgia","Times New Roman",serif}
+  .sans{font-family:"Inter Tight","Segoe UI",system-ui,sans-serif}
+  .num{font-variant-numeric:tabular-nums lining-nums}
+
+  .screen{height:100dvh;padding:18px;display:flex;overflow:hidden}
+  .sheet{flex:1;min-width:0;background:var(--sheet);border:1px solid var(--rule);
+    display:grid;grid-template-columns:1fr 330px;grid-template-rows:auto 1fr;
+    box-shadow:0 1px 0 rgb(27 33 30 / .06)}
+
+  /* ---------- шапка планшета ---------- */
+  .head{grid-column:1/-1;display:flex;align-items:flex-end;gap:22px;
+    padding:16px 22px 13px;border-bottom:1px solid var(--rule)}
+  .title{font-size:21px;letter-spacing:.01em}
+  .title span{display:block;font-size:13px;color:var(--ink2);margin-top:3px;letter-spacing:.02em}
+  .meta{margin-left:auto;display:flex;gap:26px;text-align:right}
+  .meta div{font-size:13px;color:var(--ink2)}
+  .meta b{display:block;font-size:15px;color:var(--ink);font-weight:600;margin-top:2px}
+
+  /* ---------- поле карты ---------- */
+  .field{position:relative;border-right:1px solid var(--rule);min-width:0}
+  .field svg{position:absolute;inset:0;width:100%;height:100%}
+
+  .northmark{position:absolute;top:16px;left:18px;width:34px;text-align:center;
+    font-size:13px;color:var(--ink2)}
+  .northmark svg{position:static;width:16px;height:22px;display:block;margin:0 auto 3px;
+    fill:var(--ink2)}
+
+  .scalebar{position:absolute;left:18px;bottom:18px;font-size:13px;color:var(--ink2)}
+  .scalebar .ruler{display:flex;height:7px;border:1px solid var(--ink2);width:130px}
+  .scalebar .ruler i{flex:1}
+  .scalebar .ruler i:nth-child(odd){background:var(--ink2)}
+  .scalebar .mm{display:flex;justify-content:space-between;width:130px;margin-top:3px}
+
+  /* подписи на карте — как на топооснове */
+  .callout{position:absolute;font-size:13px;color:var(--ink);white-space:nowrap}
+  .callout::before{content:"";position:absolute;left:-19px;top:8px;width:15px;height:1px;background:var(--ink2)}
+  .callout b{font-weight:600}
+  .callout s{text-decoration:none;display:block;color:var(--ink2);font-size:12px}
+
+  /* ---------- правое поле: легенда и справка ---------- */
+  .margin{display:flex;flex-direction:column;min-height:0}
+  .block{padding:16px 20px;border-bottom:1px solid var(--rule2)}
+  .cap{font-family:"Inter Tight","Segoe UI",system-ui,sans-serif;
+    font-size:12px;color:var(--ink2);letter-spacing:.04em;margin-bottom:9px}
+
+  .total{font-size:44px;line-height:1;letter-spacing:-0.02em}
+  .total s{text-decoration:none;font-size:17px;color:var(--ink2);margin-left:6px}
+
+  .legend{display:grid;gap:8px;margin-top:14px}
+  .legend div{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:10px;font-size:14px}
+  .legend i{height:13px;border:1px solid rgb(31 38 34 / .3)}
+  .legend em{font-style:normal;color:var(--ink2)}
+  .legend b{font-weight:600}
+
+  .tab{width:100%;border-collapse:collapse;font-size:14px}
+  .tab td{padding:6px 0;border-bottom:1px dotted var(--rule)}
+  .tab tr:last-child td{border-bottom:0}
+  .tab td:last-child{text-align:right;font-weight:600}
+  .tab td:first-child{color:var(--ink2)}
+
+  /* справка как документ с печатью */
+  .doc{margin-top:auto;padding:16px 20px 18px;background:#eef0eb;border-top:1px solid var(--rule)}
+  .doc .cap{margin-bottom:6px}
+  .doc p{margin:0;font-size:14px;line-height:1.6}
+  .doc .sign{display:flex;align-items:center;gap:12px;margin-top:12px}
+  .seal{width:54px;height:54px;border:1.5px solid var(--seal);border-radius:50%;
+    display:grid;place-items:center;text-align:center;color:var(--seal);
+    font-family:"Inter Tight","Segoe UI",system-ui,sans-serif;font-size:12px;line-height:1.15;
+    transform:rotate(-8deg);flex:none}
+  .sign .who{font-size:13px;color:var(--ink2)}
+  .sign .who b{display:block;color:var(--ink);font-weight:600;font-size:14px}
+  .sign button{margin-left:auto;font-family:"Inter Tight","Segoe UI",system-ui,sans-serif;
+    font-size:14px;padding:9px 16px;border:1px solid var(--ink);background:var(--ink);color:var(--sheet);
+    cursor:pointer}
+
+  @media (max-width:900px){
+    .sheet{grid-template-columns:1fr;grid-template-rows:auto 46vh 1fr}
+    .field{border-right:0;border-bottom:1px solid var(--rule)}
+    .meta{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+<div class="sheet">
+
+  <div class="head">
+    <div class="title">Кордон<span class="sans">Нижнее Поволжье и Подонье, лист 3. 1 апреля — 31 октября 2025</span></div>
+    <div class="meta sans">
+      <div>Сцен<b class="num">224</b></div>
+      <div>Контуров<b class="num">37</b></div>
+      <div>Очагов<b class="num">128</b></div>
+    </div>
+  </div>
+
+  <div class="field">
+    <svg viewBox="0 0 900 780" preserveAspectRatio="xMidYMid slice" aria-label="Картографический планшет с контурами гарей">
+      <defs>
+        <pattern id="kv" width="72" height="72" patternUnits="userSpaceOnUse">
+          <path d="M72 0H0v72" fill="none" stroke="#d3d8ce" stroke-width="1"/>
+        </pattern>
+        <pattern id="forest" width="16" height="16" patternUnits="userSpaceOnUse">
+          <circle cx="4" cy="4" r="1.1" fill="#bdb394"/><circle cx="12" cy="11" r="1.1" fill="#bdb394"/>
+        </pattern>
+        <pattern id="hatch3" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="2.6" height="6" fill="#96271f" opacity=".55"/>
+        </pattern>
+        <pattern id="hatch2" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="2" height="7" fill="#c76a25" opacity=".5"/>
+        </pattern>
+        <pattern id="hatch1" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="1.6" height="9" fill="#c9a227" opacity=".55"/>
+        </pattern>
+      </defs>
+      <rect width="900" height="780" fill="#f6f7f4"/>
+      <rect width="900" height="780" fill="url(#forest)" opacity=".5"/>
+      <rect width="900" height="780" fill="url(#kv)"/>
+      <!-- гидрография -->
+      <path d="M-20 250 C150 276 220 352 380 378 S640 436 810 392 940 430 950 418" fill="none" stroke="#8fa7b4" stroke-width="3.5"/>
+      <path d="M430 780 C462 630 418 560 466 460" fill="none" stroke="#8fa7b4" stroke-width="2.4"/>
+      <!-- просеки / дороги -->
+      <path d="M0 520 H900 M0 240 H900 M300 0 V780 M620 0 V780" stroke="#c7ccc2" stroke-width="1" stroke-dasharray="7 6"/>
+      <!-- контуры гарей штриховкой по степени -->
+      <g stroke-width="1.6">
+        <path d="M104 18 C150 6 206 24 224 62 C238 92 214 110 228 136 C240 160 212 190 170 194 C132 198 116 176 86 180 C50 185 22 162 20 128 C18 96 46 86 42 62 C38 36 66 28 104 18 Z" transform="translate(272,286) scale(.60) rotate(-6)" fill="url(#hatch3)" stroke="#96271f"/>
+        <path d="M78 10 C118 2 160 20 172 50 C182 76 158 90 168 112 C176 132 148 148 112 146 C82 144 74 128 50 130 C24 132 8 112 12 86 C16 62 38 56 38 38 C38 20 52 15 78 10 Z" transform="translate(628,186) scale(.62) rotate(14)" fill="url(#hatch2)" stroke="#c76a25"/>
+        <path d="M64 8 C98 2 132 18 140 44 C146 66 126 76 134 94 C140 110 116 124 86 122 C62 120 56 108 36 110 C16 112 6 94 10 74 C14 54 30 50 30 34 C30 18 42 12 64 8 Z" transform="translate(678,532) scale(.60) rotate(-12)" fill="url(#hatch1)" stroke="#c9a227"/>
+        <path d="M52 6 C80 2 108 14 114 36 C119 54 102 62 108 76 C113 90 92 96 68 95 C48 94 44 84 28 86 C12 88 4 72 8 56 C12 40 24 37 24 26 C24 14 34 9 52 6 Z" transform="translate(150,570) scale(.64) rotate(8)" fill="url(#hatch2)" stroke="#c76a25"/>
+      </g>
+      <!-- точки очагов, условный знак -->
+      <g stroke="#96271f" stroke-width="1.4" fill="none">
+        <path d="M383 372 l0 -9 M378.5 367.5 l9 0"/><path d="M712 262 l0 -9 M707.5 257.5 l9 0"/>
+        <path d="M742 606 l0 -9 M737.5 601.5 l9 0"/><path d="M212 636 l0 -9 M207.5 631.5 l9 0"/>
+      </g>
+    </svg>
+
+    <div class="northmark"><svg viewBox="0 0 16 22"><path d="M8 0 13 22 8 17 3 22Z"/></svg>С</div>
+
+    <div class="callout" style="left:52%;top:30%"><b>Сальская, 612 га</b><s>12 августа, сильная</s></div>
+    <div class="callout" style="left:56%;top:74%"><b>Палласовская, 489 га</b><s>28 июля, средняя</s></div>
+
+    <div class="scalebar">
+      <div class="ruler"><i></i><i></i><i></i><i></i></div>
+      <div class="mm num"><span>0</span><span>40 км</span></div>
+    </div>
+  </div>
+
+  <div class="margin">
+    <div class="block">
+      <div class="cap">Пройдено огнём</div>
+      <div class="total num">4 812<s>га</s></div>
+
+      <div class="legend">
+        <div><i style="background:#c9a22740;border-color:#c9a227"></i><em>Слабая</em><b class="num">2 140 га</b></div>
+        <div><i style="background:#c76a2540;border-color:#c76a25"></i><em>Средняя</em><b class="num">1 605 га</b></div>
+        <div><i style="background:#96271f40;border-color:#96271f"></i><em>Сильная</em><b class="num">1 067 га</b></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="cap">Ведомость</div>
+      <table class="tab">
+        <tr><td>Очагов обнаружено</td><td class="num">128</td></tr>
+        <tr><td>Отсеяно ложных</td><td class="num">271</td></tr>
+        <tr><td>Восстановится само</td><td class="num">2 140 га</td></tr>
+        <tr><td>Требует посадок</td><td class="num">2 672 га</td></tr>
+      </table>
+    </div>
+
+    <div class="doc">
+      <div class="cap">Справка</div>
+      <p>Площадь, пройденная огнём на листе 3, составляет <b class="num">4 812 га</b>, из них сильной степени поражения — <b class="num">1 067 га</b>.</p>
+      <div class="sign">
+        <span class="seal">КОРДОН<br>ДЗЗ</span>
+        <span class="who">составлено<b>31.10.2025</b></span>
+        <button class="sans">Выгрузить</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</body>
+</html>
