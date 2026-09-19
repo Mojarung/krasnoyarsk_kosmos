@@ -14,6 +14,8 @@ export interface HotspotProps {
   scene_id: string
   bt_i4: number
   bt_i5: number
+  frp_mw: number | null
+  frp_saturated: boolean
   confidence: number
   landcover: string
   is_night: boolean
@@ -69,6 +71,66 @@ export interface RestorationItem {
   breakdown: { landcover_label: string; severity_label: string; severity: number; area_ha: number }[]
 }
 
+export interface EmissionSpecies {
+  key: string
+  label: string
+  name: string
+  about: string
+  tonnes: number
+}
+
+export interface Emissions {
+  disclaimer: string
+  method: string
+  sources: string
+  dry_matter_t: number
+  co2e_t: number
+  species: EmissionSpecies[]
+  by_landcover: {
+    landcover: string
+    label: string
+    area_ha: number
+    dry_matter_t: number
+    share: number
+    load_t_ha: number
+  }[]
+  by_severity: { severity: number; label: string; dry_matter_t: number; completeness: number }[]
+}
+
+export interface ProfileYear {
+  year: number
+  hotspots: number
+  active_days: number
+  frp_mw: number | null
+  contours: number
+  area_ha: number
+  area_deviation: number | null
+  hotspot_deviation: number | null
+  in_query: boolean
+}
+
+export interface Profile {
+  query: { geometry: AreaGeometry; date_from: string; date_to: string; area_km2: number }
+  coverage: { first_day: string | null; last_day: string | null; af_scenes: number; bs_scenes: number; years: number }
+  years: ProfileYear[]
+  season: { month: number; label: string; hotspots: number; hotspots_per_year: number; area_ha: number; years_seen: number }[]
+  peak_month: string | null
+  fire_season: { from: string; to: string; months: number; share: number } | null
+  worst_year: number | null
+  recurrence: {
+    cell_area_ha: number
+    touched_cells: number
+    touched_ha: number
+    touched_share: number | null
+    repeat_cells: number
+    repeat_ha: number
+    repeat_share: number | null
+    max_years: number
+    buckets: { years: number; cells: number; area_ha: number; share: number }[]
+  }
+  method: string
+}
+
 export interface Report {
   generated_at: string
   query: { geometry: AreaGeometry; date_from: string; date_to: string }
@@ -99,6 +161,23 @@ export interface Report {
     by_day: { day: string; fire: number; technogenic: number; glint: number }[]
     bt_i4_mean_k: number | null
     bt_i4_max_k: number | null
+    power: {
+      total_mw: number | null
+      max_mw: number | null
+      mean_mw: number | null
+      saturated: number
+      saturated_share: number | null
+      top: {
+        day: string
+        hotspots: number
+        frp_mw: number | null
+        frp_max_mw: number | null
+        landcover: string
+        label: string
+        lon: number
+        lat: number
+      }[]
+    }
     delta_mean_k: number | null
     confidence_mean: number | null
     night_share: number | null
@@ -110,6 +189,7 @@ export interface Report {
     peak_month: string | null
   }
   quality: Quality | null
+  emissions: Emissions
   restoration: {
     currency: string
     disclaimer: string

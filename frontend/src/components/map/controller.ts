@@ -35,11 +35,15 @@ function hotspotPopup(p: HotspotProps): string {
   const tone = p.kind === 'fire' ? 'var(--fire)' : p.kind === 'glint' ? 'var(--glint)' : 'var(--technogenic)'
   const weather = p.wind_speed == null ? '' : `<div class="text-xs opacity-70">Ветер ${fmt.num(p.wind_speed)} м/с, влажность ${fmt.num(p.rh2m)}%</div>`
   const reason = p.reason ? `<div class="mt-1.5 text-xs leading-snug" style="color:${tone}">${escapeHtml(p.reason)}</div>` : ''
+  const power =
+    p.frp_mw == null
+      ? ''
+      : `<div class="mt-1.5 text-xs">Мощность <span class="font-medium">${fmt.num(p.frp_mw)} МВт</span>${p.frp_saturated ? ' <span class="opacity-70">(канал насыщен, оценка снизу)</span>' : ''}</div>`
   return `<div class="text-[13px] min-w-52">
     <div class="flex items-center gap-2 font-medium"><span class="size-2 rounded-full" style="background:${tone}"></span>${escapeHtml(p.kind_label)}</div>
     <div class="mt-1 text-xs opacity-70">${fmt.dateTimeUtc(p.acquired_at)} · ${escapeHtml(p.satellite ?? '')}${p.is_night ? ' · ночь' : ''}</div>
     <div class="mt-1.5 grid grid-cols-2 gap-x-3 text-xs"><span>I4 ${fmt.num(p.bt_i4)} K</span><span>I4-I5 ${fmt.num(p.bt_i4 - p.bt_i5)} K</span><span>${escapeHtml(p.landcover)}</span><span>увер. ${fmt.pct(p.confidence)}</span></div>
-    ${weather}${reason}</div>`
+    ${power}${weather}${reason}</div>`
 }
 
 export class FireMap {
