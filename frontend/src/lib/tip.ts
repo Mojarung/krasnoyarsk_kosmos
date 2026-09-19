@@ -1,14 +1,20 @@
 import type { Directive } from 'vue'
 
 const SHOW_DELAY_MS = 350
+/** Подсказка переживает короткий уход курсора: рука дрожит, элементы мелкие. */
+const HIDE_DELAY_MS = 140
+/** Сразу после закрытой подсказки соседняя открывается без паузы — как и переход между элементами. */
+const SKIP_DELAY_MS = 500
 const GAP_PX = 10
 const EDGE_PX = 8
 
 const texts = new WeakMap<HTMLElement, string>()
 let bubble: HTMLElement | null = null
-let timer: number | undefined
+let showTimer: number | undefined
+let hideTimer: number | undefined
 let owner: HTMLElement | null = null
 let pending: HTMLElement | null = null
+let closedAt = 0
 let guarded = false
 
 function ensureBubble(): HTMLElement {
@@ -26,8 +32,8 @@ function place(target: HTMLElement) {
   const rect = target.getBoundingClientRect()
   /*
    * Размер берём из offsetWidth/offsetHeight, а не из getBoundingClientRect:
-   * закрытая подсказка уменьшена `scale: .92`, и прямоугольник возвращается
-   * уменьшенным — центрирование считалось по чужой ширине и уезжало.
+   * закрытая подсказка уменьшена, и прямоугольник возвращается уменьшенным —
+   * центрирование считалось по чужой ширине и уезжало.
    */
   const width = tip.offsetWidth
   const height = tip.offsetHeight
@@ -48,14 +54,18 @@ function place(target: HTMLElement) {
   if (left + width < rect.right) left = Math.min(Math.max(rect.right - width, EDGE_PX), maxLeft)
   else if (left > rect.left) left = Math.min(Math.max(rect.left, EDGE_PX), maxLeft)
 
-  tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`
+  tip.style.left = `${Math.round(left)}px`
+  tip.style.top = `${Math.round(top)}px`
   tip.dataset.side = fitsAbove ? 'top' : 'bottom'
 }
 
 function show(target: HTMLElement) {
   pending = null
   const text = texts.get(target)
-  if (!text || !target.isConnected) return
+  if (!text || !target.isConnected) {
+    hide()
+    return
+  }
   const tip = ensureBubble()
   owner = target
   tip.textContent = text
@@ -64,7 +74,9 @@ function show(target: HTMLElement) {
 }
 
 function hide() {
-  window.clearTimeout(timer)
+  window.clearTimeout(showTimer)
+  window.clearTimeout(hideTimer)
+  if (owner) closedAt = performance.now()
   owner = null
   pending = null
   if (bubble) bubble.dataset.open = 'false'
@@ -72,9 +84,31 @@ function hide() {
 
 function onEnter(event: Event) {
   const target = event.currentTarget as HTMLElement
-  window.clearTimeout(timer)
+  window.clearTimeout(hideTimer)
+  if (owner === target) {
+    pending = null
+    return
+  }
+  window.clearTimeout(showTimer)
   pending = target
-  timer = window.setTimeout(() => show(target), SHOW_DELAY_MS)
+  // Первая подсказка ждёт паузу, чтобы не мельтешить под курсором. Дальше по
+  // ряду элементов она ходит сразу: пауза на каждом читается как «потерялась».
+  if (owner || performance.now() - closedAt < SKIP_DELAY_MS) show(target)
+  else showTimer = window.setTimeout(() => show(target), SHOW_DELAY_MS)
+}
+
+/** Клавиатуре подсказка нужна сразу, а после клика мышью — нет: человек уже нажал. */
+function onFocus(event: Event) {
+  const target = event.currentTarget as HTMLElement
+  if (target.matches(':focus-visible')) show(target)
+}
+
+function onLeave() {
+  window.clearTimeout(showTimer)
+  pending = null
+  if (!owner) return
+  window.clearTimeout(hideTimer)
+  hideTimer = window.setTimeout(hide, HIDE_DELAY_MS)
 }
 
 /** Страховка: подсказка не должна пережить клик, прокрутку, Escape или уход со вкладки. */
@@ -86,8 +120,8 @@ function installGuards() {
 
 const EVENTS: [string, (event: Event) => void][] = [
   ['pointerenter', onEnter],
-  ['focus', onEnter],
-  ['pointerleave', hide],
+  ['focus', onFocus],
+  ['pointerleave', onLeave],
   ['blur', hide],
   ['pointerdown', hide],
 ]

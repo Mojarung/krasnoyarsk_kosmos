@@ -204,13 +204,28 @@
   line-height: 1.35;
   pointer-events: none;
   opacity: 0;
-  scale: 0.92;
-  transition: opacity 0.16s ease, scale 0.35s var(--ease-spring);
+  /* Подсказка выходит со стороны своего элемента. Пружина здесь была лишней:
+     перелёт масштаба на 16% читается как рывок у плашки размером в строку. */
+  transform: translateY(var(--tip-shift, 4px)) scale(0.97);
+  transition:
+    opacity 0.14s var(--ease-standard),
+    transform 0.18s var(--ease-emphasized);
   box-shadow: var(--shadow-float);
+}
+.fw-tip[data-side='bottom'] {
+  --tip-shift: -4px;
 }
 .fw-tip[data-open='true'] {
   opacity: 1;
-  scale: 1;
+  transform: none;
+  /* Переход на соседний элемент: открытая подсказка переезжает, а не прыгает.
+     Пока она скрыта, left/top в переходе нет, поэтому первое появление
+     случается сразу на месте, без проезда через пол-экрана. */
+  transition:
+    opacity 0.14s var(--ease-standard),
+    transform 0.18s var(--ease-emphasized),
+    left 0.2s var(--ease-emphasized),
+    top 0.2s var(--ease-emphasized);
 }
 
 .maplibregl-map {
