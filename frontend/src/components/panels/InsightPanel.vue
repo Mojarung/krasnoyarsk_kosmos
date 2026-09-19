@@ -38,7 +38,7 @@ const VIEWS = {
   restoration: defineAsyncComponent(() => import('./tabs/RestorationTab.vue')),
   alarms: defineAsyncComponent(() => import('./tabs/TechnogenicTab.vue')),
 }
-const COMPACT_CLASS = 'flex max-h-full w-[420px] flex-col'
+const COMPACT_CLASS = 'flex max-h-full w-[min(420px,100%)] flex-col'
 const WIDE_CLASS = 'ml-auto flex h-full min-w-0 max-w-[1280px] flex-1 flex-col !bg-surface-1/95'
 
 const content = ref<HTMLElement | null>(null)

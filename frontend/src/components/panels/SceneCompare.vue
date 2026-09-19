@@ -124,9 +124,17 @@ async function reprocess() {
 
     <div v-if="isBurn && stats.burn_ha != null" class="grid grid-cols-4 gap-1.5 text-center text-xs">
       <div class="rounded-2xl bg-surface-2 py-2"><div class="text-sm font-semibold tabular-nums">{{ fmt.ha(stats.burn_ha) }}</div><div class="text-muted-foreground">га гари</div></div>
+      <!--
+        Число набрано цветом текста, а степень несёт точка рядом с подписью:
+        покрашенная цифра давала контраст 1.68 к фону у слабой степени при
+        пороге 4.5 — цвет данных не должен подменять цвет текста.
+      -->
       <div v-for="(value, index) in stats.severity_ha ?? []" :key="index" class="rounded-2xl bg-surface-2 py-2">
-        <div class="text-sm font-semibold tabular-nums" :style="{ color: `var(--sev-${index + 1})` }">{{ fmt.ha(value) }}</div>
-        <div class="text-muted-foreground">{{ ['слабая', 'средняя', 'сильная'][index] }}</div>
+        <div class="text-sm font-semibold tabular-nums">{{ fmt.ha(value) }}</div>
+        <div class="flex items-center justify-center gap-1.5 text-muted-foreground">
+          <i class="size-1.5 shrink-0 rounded-full" :style="{ background: `var(--sev-${index + 1})` }" />
+          {{ ['слабая', 'средняя', 'сильная'][index] }}
+        </div>
       </div>
     </div>
     <p v-if="iou != null" class="text-center text-[13px] text-muted-foreground">IoU контура с эталоном: {{ iou.toFixed(3) }}, модель {{ scene?.model_name }}</p>

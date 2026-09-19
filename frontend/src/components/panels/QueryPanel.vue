@@ -101,7 +101,7 @@ function toggleDraw(mode: 'polygon' | 'rectangle') {
 </script>
 
 <template>
-  <MorphPanel :open="ui.queryOpen" class="flex max-h-full w-[330px] flex-col" pill-class="w-fit">
+  <MorphPanel :open="ui.queryOpen" class="flex max-h-full w-[min(330px,100%)] flex-col" pill-class="w-fit">
     <template #pill>
       <button v-tip="'Развернуть панель запроса'" type="button" class="flex h-12 items-center gap-2.5 pl-4 pr-5 text-sm font-medium" @click="ui.queryOpen = true">
         <SlidersHorizontal class="size-4 text-primary" />

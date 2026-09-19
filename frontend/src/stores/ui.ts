@@ -25,8 +25,11 @@ export const useUiStore = defineStore('ui', () => {
   const showSources = ref(false)
   const drawMode = ref<DrawMode>('idle')
   const insightTab = ref<InsightView>('overview')
-  const insightOpen = ref(true)
-  const queryOpen = ref(true)
+  /* На узком экране панели стартуют свёрнутыми: две развёрнутые заняли бы всю
+     карту, а карта здесь главный объект. Порог совпадает с брейкпоинтом lg. */
+  const wide = typeof window === 'undefined' || window.innerWidth >= 1024
+  const insightOpen = ref(wide)
+  const queryOpen = ref(wide)
   const pipelineOpen = ref(false)
   const compareSceneId = ref<string | null>(null)
   const playing = ref(false)

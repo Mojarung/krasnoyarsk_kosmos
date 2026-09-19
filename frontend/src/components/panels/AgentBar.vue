@@ -88,7 +88,7 @@ function close() {
       <input
         v-model="input"
         class="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        placeholder="Спросите: гари в Калмыкии за июль 2023"
+        placeholder="Спросите: гари в Ростовской области в июле 2020"
         aria-label="Запрос агенту"
         @focus="!answer && (open = true)"
       />

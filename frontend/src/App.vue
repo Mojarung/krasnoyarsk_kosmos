@@ -66,12 +66,20 @@ onMounted(boot)
     <div ref="chrome" class="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3 sm:p-4">
       <TopBar data-enter />
 
-      <div class="flex min-h-0 flex-1 items-start justify-between gap-3">
-        <QueryPanel data-enter class="pointer-events-auto shrink-0 max-lg:hidden" />
-        <InsightPanel data-enter class="pointer-events-auto max-lg:hidden" />
+      <!--
+        Ниже 1024 px обе панели раньше просто исчезали (max-lg:hidden) и заменить
+        их было нечем: на планшете и телефоне оставалась голая карта без запроса
+        и без сводки. Теперь они стартуют свёрнутыми в плитку, стопкой, и
+        раскрываются во всю доступную ширину — карта при этом остаётся видна.
+      -->
+      <div class="flex min-h-0 flex-1 items-start justify-between gap-3 max-lg:flex-col max-lg:justify-start">
+        <QueryPanel data-enter class="pointer-events-auto shrink-0 max-lg:max-w-full" />
+        <InsightPanel data-enter class="pointer-events-auto max-lg:max-w-full" />
       </div>
 
-      <div class="flex justify-center">
+      <!-- Плашка копирайта карты сидит в правом нижнем углу и на узком экране
+           накрывала подписи годов: отводим шкале запас снизу. -->
+      <div class="flex justify-center max-sm:pb-6">
         <TimelineBar data-enter class="pointer-events-auto transition-[opacity,transform] duration-300" :class="ui.compareSceneId && '!pointer-events-none translate-y-6 !opacity-0'" />
       </div>
     </div>

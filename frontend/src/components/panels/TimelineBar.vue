@@ -155,9 +155,11 @@ onBeforeUnmount(stop)
 
     <div class="min-w-0 flex-1">
       <div class="mb-1 flex items-center justify-between text-[13px] text-muted-foreground">
+        <!-- На узком экране подсказка ломалась в три строки рядом с легендой:
+             легенда важнее, она объясняет цвет столбиков. -->
         <span v-if="playheadLabel" class="font-medium text-primary tabular-nums">{{ playheadLabel }}</span>
-        <span v-else>Потяните по шкале, чтобы выбрать период</span>
-        <span class="flex items-center gap-3">
+        <span v-else class="truncate max-sm:hidden">Потяните по шкале, чтобы выбрать период</span>
+        <span class="flex shrink-0 items-center gap-3">
           <span class="flex items-center gap-1"><i class="size-1.5 rounded-full bg-fire" />термоточки</span>
           <span class="flex items-center gap-1"><i class="size-1.5 rounded-full bg-technogenic" />отсеяно</span>
         </span>

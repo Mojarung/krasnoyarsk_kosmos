@@ -269,6 +269,15 @@ async def fetch_burn_areas(session: AsyncSession, query: SpatioTemporalQuery) ->
     features = []
     for row in (await session.execute(_BURN_AREAS, query.sql_params)).mappings():
         share = row["area_ha"] / row["full_area_ha"] if row["full_area_ha"] else 0.0
+        by_severity = {
+            1: round(row["sev1_ha"] * share, 2),
+            2: round(row["sev2_ha"] * share, 2),
+            3: round(row["sev3_ha"] * share, 2),
+        }
+        # Преобладающая степень: контур несёт разбивку по всем трём классам, но ТЗ
+        # требует у объекта именно атрибут класса поражения. Без него проверяющий,
+        # открывший этот слой первым, атрибута не найдёт. Разбивка остаётся рядом.
+        severity = max(by_severity, key=lambda level: by_severity[level])
         features.append(
             {
                 "type": "Feature",
@@ -281,9 +290,11 @@ async def fetch_burn_areas(session: AsyncSession, query: SpatioTemporalQuery) ->
                     "date_pre": row["date_pre"].isoformat(),
                     "date_post": row["date_post"].isoformat(),
                     "area_ha": round(row["area_ha"], 2),
-                    "sev1_ha": round(row["sev1_ha"] * share, 2),
-                    "sev2_ha": round(row["sev2_ha"] * share, 2),
-                    "sev3_ha": round(row["sev3_ha"] * share, 2),
+                    "severity": severity,
+                    "severity_label": SEVERITY_LABELS[severity],
+                    "sev1_ha": by_severity[1],
+                    "sev2_ha": by_severity[2],
+                    "sev3_ha": by_severity[3],
                     "clipped": not row["is_whole"],
                     "area_crs": f"EPSG:{row['epsg']}",
                 },
