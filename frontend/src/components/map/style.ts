@@ -211,8 +211,20 @@ export function overlayLayers(): AddLayerObject[] {
       source: SRC.hotspots,
       filter: ['==', ['get', 'kind'], 'fire'],
       paint: {
-        // Размер ореола несёт мощность излучения: корень из FRP, чтобы площадь пятна росла с ней линейно.
-        'circle-radius': ['*', ['interpolate', ['linear'], ['zoom'], 4, 5, 9, 12, 13, 26], POWER_SCALE],
+        /*
+         * Размер ореола несёт мощность излучения: корень из FRP, чтобы площадь
+         * пятна росла с ней линейно. Множитель стоит в точках интерполяции, а не
+         * снаружи: MapLibre 6 принимает `zoom` только как вход верхнеуровневого
+         * interpolate, и обёрнутое в `*` выражение роняло весь слой.
+         */
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          4, ['*', 5, POWER_SCALE],
+          9, ['*', 12, POWER_SCALE],
+          13, ['*', 26, POWER_SCALE],
+        ],
         'circle-color': '#f7774a',
         'circle-blur': 1,
         'circle-opacity': 0.42,
