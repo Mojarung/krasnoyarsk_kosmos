@@ -27,13 +27,24 @@ export const LAYER = {
 } as const
 
 export const SEVERITY_ZOOM = 10
-const FOCUS_BOUNDS = [
-  [15, 30],
-  [80, 30],
-  [80, 68],
-  [15, 68],
-  [15, 30],
-]
+/**
+ * Внешний контур затемнения — весь мир, а не рамка вокруг зоны. Прежний
+ * прямоугольник 15-80° в.д., 30-68° с.ш. на рабочем зуме не было видно, но
+ * стоило отдалить до глобуса, и он читался серым клином с прямыми краями.
+ *
+ * Рёбра разбиты на шаги: на глобусе отрезок между далёкими точками идёт по
+ * дуге большого круга, поэтому одна линия от полюса до полюса выгнулась бы
+ * внутрь. Полюса подрезаны до ±89,9°, чтобы не ловить вырождение проекции.
+ */
+const FOCUS_BOUNDS = ((step = 10) => {
+  const ring: number[][] = []
+  for (let lon = -180; lon <= 180; lon += step) ring.push([lon, -89.9])
+  for (let lat = -89.9; lat <= 89.9; lat += step) ring.push([180, lat])
+  for (let lon = 180; lon >= -180; lon -= step) ring.push([lon, 89.9])
+  for (let lat = 89.9; lat >= -89.9; lat -= step) ring.push([-180, lat])
+  ring.push([-180, -89.9])
+  return ring
+})()
 
 function signedArea(ring: number[][]): number {
   let sum = 0
