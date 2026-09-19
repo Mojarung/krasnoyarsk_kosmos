@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, BarChart3, ChevronRight, LayoutDashboard, Maximize2, ShieldCheck, Sprout } from '@lucide/vue'
+import { ArrowLeft, BarChart3, ChevronRight, History, LayoutDashboard, Maximize2, ShieldCheck, Sprout, Wind } from '@lucide/vue'
 import { onKeyStroke } from '@vueuse/core'
 import { gsap } from 'gsap'
 import { type Component, computed, defineAsyncComponent, ref, watch } from 'vue'
@@ -19,12 +19,16 @@ const ui = useUiStore()
 
 const SECTIONS: { view: DetailView; title: string; short: string; about: string; icon: Component }[] = [
   { view: 'dynamics', title: 'Динамика и статистика', short: 'Когда и где горело', about: 'Графики по месяцам, что именно горело, какой спутник заметил и какая была погода', icon: BarChart3 },
+  { view: 'emissions', title: 'Выбросы в атмосферу', short: 'Что ушло в воздух', about: 'Сколько биомассы сгорело и сколько при этом выброшено CO₂, угарного газа, метана и мелкой взвеси', icon: Wind },
+  { view: 'profile', title: 'Профиль территории', short: 'Как горит обычно', about: 'Все годы наблюдений: межгодовой ход, сезонность и места, которые горят из года в год', icon: History },
   { view: 'restoration', title: 'Восстановление', short: 'Что делать с гарями', about: 'Что восстановится само, а где нужны посадки. Считаем по степени поражения и типу территории', icon: Sprout },
   { view: 'alarms', title: 'Ложные тревоги', short: 'Заводы, факелы, блики', about: 'Спутник видит тепло, но это не пожар: заводы, факелы, блики. Отсеяли их, и бригада не выезжает зря', icon: ShieldCheck },
 ]
 const VIEWS = {
   overview: defineAsyncComponent(() => import('./tabs/OverviewTab.vue')),
   dynamics: defineAsyncComponent(() => import('./tabs/DynamicsTab.vue')),
+  emissions: defineAsyncComponent(() => import('./tabs/EmissionsTab.vue')),
+  profile: defineAsyncComponent(() => import('./tabs/ProfileTab.vue')),
   restoration: defineAsyncComponent(() => import('./tabs/RestorationTab.vue')),
   alarms: defineAsyncComponent(() => import('./tabs/TechnogenicTab.vue')),
 }
