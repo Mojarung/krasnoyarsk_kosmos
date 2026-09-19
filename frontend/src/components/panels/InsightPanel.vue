@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, BarChart3, ChevronRight, LayoutDashboard, Maximize2, ShieldCheck, Sprout } from '@lucide/vue'
+import { BarChart3, ChevronRight, LayoutDashboard, Maximize2, Minimize2, ShieldCheck, Sprout } from '@lucide/vue'
 import { onKeyStroke } from '@vueuse/core'
 import { gsap } from 'gsap'
 import { type Component, computed, defineAsyncComponent, ref, watch } from 'vue'
@@ -22,6 +22,16 @@ const SECTIONS: { view: DetailView; title: string; icon: Component }[] = [
   { view: 'restoration', title: 'Восстановление', icon: Sprout },
   { view: 'alarms', title: 'Ложные тревоги', icon: ShieldCheck },
 ]
+
+/**
+ * «Сводка» стоит первым пунктом списка слева, а не отдельной кнопкой «назад»
+ * в противоположном от сворачивания углу. Список отвечает на «куда», кнопка
+ * справа — на «насколько крупно»: два разных вопроса, два разных места.
+ */
+const NAV: { view: InsightView; title: string; icon: Component }[] = [
+  { view: 'overview', title: 'Сводка', icon: LayoutDashboard },
+  ...SECTIONS,
+]
 const VIEWS = {
   overview: defineAsyncComponent(() => import('./tabs/OverviewTab.vue')),
   dynamics: defineAsyncComponent(() => import('./tabs/DynamicsTab.vue')),
@@ -36,6 +46,20 @@ const scroller = ref<HTMLElement | null>(null)
 const isWide = computed(() => ui.insightTab !== 'overview')
 const section = computed(() => SECTIONS.find((s) => s.view === ui.insightTab) ?? null)
 const period = computed(() => [query.dateFrom, query.dateTo].map((d) => fmt.date(d).replace(/\s*г\.$/, '')).join(' - '))
+
+/**
+ * Одна кнопка в правом верхнем углу уменьшает панель на ступень: с разбора
+ * во весь экран — до сводки, со сводки — до плитки. Раньше эти два действия
+ * жили в противоположных углах, и чтобы выйти из разбора, приходилось тянуться
+ * через весь экран влево.
+ */
+const shrinkTip = computed(() =>
+  isWide.value ? 'Свернуть до сводки, клавиша Esc' : 'Скрыть панель, карта станет шире',
+)
+function shrink() {
+  if (isWide.value) open('overview')
+  else ui.insightOpen = false
+}
 
 function open(view: InsightView) {
   ui.insightTab = view
@@ -70,19 +94,27 @@ onKeyStroke('Escape', () => {
 
     <div class="flex min-h-0 flex-1 flex-col @container/panel">
     <header class="flex items-center gap-3 px-3 pt-3">
-      <Button v-if="isWide" v-tip="'Свернуть до сводки и вернуть карту, клавиша Esc'" variant="secondary" size="sm" class="shrink-0 pl-2.5" @click="open('overview')"><ArrowLeft />Сводка</Button>
-      <div class="min-w-0 flex-1" :class="!isWide && 'pl-2'">
+      <div class="min-w-0 flex-1 pl-2">
         <h2 class="truncate text-[15px] font-semibold leading-tight">{{ section?.title ?? 'Сводка' }}</h2>
         <p class="truncate text-[13px] text-muted-foreground">{{ query.regionName }}, {{ period }}</p>
       </div>
       <Button v-if="!isWide" v-tip="'Открыть подробную аналитику на весь экран'" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Открыть подробную аналитику" @click="open('dynamics')"><Maximize2 /></Button>
-      <Button v-tip="'Свернуть панель, карта станет шире'" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Свернуть сводку" @click="ui.insightOpen = false"><ChevronRight /></Button>
+      <Button
+        v-tip="shrinkTip"
+        variant="ghost"
+        size="icon-sm"
+        class="shrink-0"
+        :aria-label="isWide ? 'Свернуть до сводки' : 'Скрыть панель'"
+        @click="shrink"
+      >
+        <component :is="isWide ? Minimize2 : ChevronRight" />
+      </Button>
     </header>
 
     <div class="flex min-h-0 flex-1">
       <nav v-if="isWide" class="hidden w-[236px] shrink-0 flex-col gap-1 py-3 pl-3 @3xl/panel:flex" aria-label="Разделы аналитики">
         <button
-          v-for="item in SECTIONS"
+          v-for="item in NAV"
           :key="item.view"
           type="button"
           class="flex items-start gap-3 rounded-[20px] px-3.5 py-2.5 text-left outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/60"
